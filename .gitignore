@@ -1,0 +1,55 @@
+# Build outputs
+build/
+dist/
+target/
+out/
+*.jar
+*.class
+
+# VSCode extension
+*.vsix
+node_modules/
+src/vscode-kotlin/dist/
+
+# Kotlin/Gradle
+.gradle/
+src/kotlin-debug-adapter/.gradle/
+src/kotlin-debug-adapter/adapter/build/
+src/kotlin-debug-adapter/build/
+*.kexe
+*.exe
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+*.tmp
+*.temp
+*.log
+.cache/
+
+# Dependencies
+.m2/
+npm-debug.log*
+yarn-error.log*
+
+# Release artifacts (except VSIX we want to commit for releases)
+*.zip
+*.tar.gz
+
+# Environment
+.env
+.env.local
+*.jks
+*.keystore

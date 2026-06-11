@@ -1,0 +1,16 @@
+.gradle
+.settings
+.project
+.classpath
+.idea
+build
+bin
+target
+.DS_Store
+node_modules
+*.vsix
+*.log
+out
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json

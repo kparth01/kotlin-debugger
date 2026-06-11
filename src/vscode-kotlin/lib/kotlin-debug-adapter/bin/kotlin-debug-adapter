@@ -1,0 +1,4 @@
+#!/bin/bash
+JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17}"
+JAR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"${JAVA_HOME}/bin/java" -cp "${JAR_DIR}/*" org.javacs.ktda.KDAMainKt "$@"
