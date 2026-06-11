@@ -7,7 +7,6 @@ out/
 *.class
 
 # VSCode extension
-*.vsix
 node_modules/
 src/vscode-kotlin/dist/
 

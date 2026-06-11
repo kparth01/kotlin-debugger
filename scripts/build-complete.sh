@@ -115,9 +115,10 @@ if [ -z "$VSIX" ]; then
     exit 1
 fi
 
-# Copy VSIX to project root
-cp "$VSIX" "$PROJECT_ROOT/"
-VSIX_PATH="$PROJECT_ROOT/$VSIX"
+# Move VSIX to project root (only one location)
+VSIX_FILENAME=$(basename "$VSIX")
+VSIX_PATH="$PROJECT_ROOT/$VSIX_FILENAME"
+mv "$VSIX" "$VSIX_PATH"
 VSIX_SIZE=$(du -h "$VSIX_PATH" | cut -f1)
 
 echo ""
