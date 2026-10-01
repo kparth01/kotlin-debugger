@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "kotlin-jvm",
+      "request": "attach",
+      "name": "Attach to Spring Boot demo (Kotlin)",
+      "hostName": "localhost",
+      "port": 5005,
+      "projectRoot": "${workspaceFolder}"
+    },
+    {
+      "type": "kotlin-jvm",
+      "request": "launch",
+      "name": "Launch Spring Boot demo (Kotlin)",
+      "mainClass": "com.example.demo.DemoApplicationKt",
+      "projectRoot": "${workspaceFolder}",
+      "args": ["--server.port=8080"]
+    }
+  ]
+}

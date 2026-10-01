@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>dev.ktdebug</groupId>
+    <artifactId>kotlin-debug-adapter</artifactId>
+    <version>2.0.0</version>
+    <packaging>jar</packaging>
+    <name>Kotlin Debug Adapter</name>
+    <description>Debug Adapter Protocol server for Kotlin/JVM built on JDI/JDWP</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <kotlin.version>2.4.0</kotlin.version>
+        <!-- The adapter itself runs on JDK 17+; debuggees can be any JDWP JVM (tested with 21). -->
+        <adapter.jvm.target>17</adapter.jvm.target>
+        <!-- Test fixtures are compiled like a typical modern app: JDK 21 bytecode. -->
+        <fixture.jvm.target>21</fixture.jvm.target>
+        <lsp4j.version>0.24.0</lsp4j.version>
+        <coroutines.version>1.10.2</coroutines.version>
+        <junit.version>5.11.4</junit.version>
+        <fixture.classes>${project.build.testOutputDirectory}</fixture.classes>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+            <version>${kotlin.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.lsp4j</groupId>
+            <artifactId>org.eclipse.lsp4j.debug</artifactId>
+            <version>${lsp4j.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Only needed to compile/run the coroutine test fixtures (debuggee side). -->
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-core-jvm</artifactId>
+            <version>${coroutines.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <sourceDirectory>src/main/kotlin</sourceDirectory>
+        <testSourceDirectory>src/test/kotlin</testSourceDirectory>
+
+        <plugins>
+            <plugin>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-maven-plugin</artifactId>
+                <version>${kotlin.version}</version>
+                <configuration>
+                    <jvmTarget>${adapter.jvm.target}</jvmTarget>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>compile</id>
+                        <phase>compile</phase>
+                        <goals><goal>compile</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>test-compile</id>
+                        <phase>test-compile</phase>
+                        <goals><goal>test-compile</goal></goals>
+                    </execution>
+                    <!--
+                      Debuggee fixtures: realistic Kotlin (classes, lambdas, inline functions across
+                      files, generics, companions, exceptions, coroutines) compiled with default
+                      Kotlin settings (into target/test-classes) that the integration tests launch
+                      as separate JVMs under JDWP.
+                    -->
+                    <execution>
+                        <id>compile-fixtures</id>
+                        <phase>test-compile</phase>
+                        <goals><goal>test-compile</goal></goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>${project.basedir}/src/fixtures/kotlin</sourceDir>
+                            </sourceDirs>
+                            <jvmTarget>${fixture.jvm.target}</jvmTarget>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.1</version>
+                <executions>
+                    <execution>
+                        <id>fixture-classpath</id>
+                        <phase>generate-test-resources</phase>
+                        <goals><goal>build-classpath</goal></goals>
+                        <configuration>
+                            <includeScope>test</includeScope>
+                            <includeArtifactIds>kotlin-stdlib,kotlinx-coroutines-core-jvm,annotations</includeArtifactIds>
+                            <outputProperty>fixture.dependency.classpath</outputProperty>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <fixture.classes>${fixture.classes}</fixture.classes>
+                        <fixture.sources>${project.basedir}/src/fixtures/kotlin</fixture.sources>
+                        <fixture.classpath>${fixture.dependency.classpath}</fixture.classpath>
+                        <adapter.classes>${project.build.outputDirectory}</adapter.classes>
+                        <!-- Spring Boot validation (skipped unless the sample has been built) -->
+                        <demo.home>${project.basedir}/../samples/spring-boot-kotlin-demo</demo.home>
+                    </systemPropertyVariables>
+                    <trimStackTrace>false</trimStackTrace>
+                </configuration>
+            </plugin>
+
+            <!-- Single self-contained jar: `java -jar kotlin-debug-adapter.jar` -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <finalName>kotlin-debug-adapter</finalName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>dev.ktdebug.MainKt</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/versions/9/module-info.class</exclude>
+                                        <exclude>module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
