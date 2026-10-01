@@ -1,0 +1,10 @@
+**
+!package.json
+!README.md
+!CHANGELOG.md
+!LICENSE
+!language-configuration.json
+!syntaxes/**
+!resources/**
+!server/kotlin-debug-adapter.jar
+!out/src/**/*.js

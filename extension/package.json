@@ -1,0 +1,276 @@
+{
+  "name": "kotlin-debugger",
+  "displayName": "Kotlin Debugger (JVM)",
+  "description": "Debug Kotlin/JVM and Spring Boot apps from VS Code: attach to any JVM over JDWP, Kotlin source breakpoints (incl. inline functions, lambdas, coroutines), stepping, variables and Kotlin expression evaluation.",
+  "version": "2.0.0",
+  "publisher": "kparth01",
+  "license": "Apache-2.0",
+  "icon": "resources/logo128.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kparth01/kotlin-debugger.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Debuggers",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "kotlin",
+    "debugger",
+    "jvm",
+    "spring boot",
+    "jdwp",
+    "coroutines"
+  ],
+  "main": "./out/src/extension.js",
+  "activationEvents": [
+    "onDebugResolve:kotlin-jvm",
+    "onDebugDynamicConfigurations:kotlin-jvm",
+    "onDebugInitialConfigurations",
+    "onCommand:kotlinDebugger.attach"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "kotlin",
+        "aliases": ["Kotlin", "kotlin"],
+        "extensions": [".kt", ".kts"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "kotlin",
+        "scopeName": "source.kotlin",
+        "path": "./syntaxes/kotlin.tmLanguage.json"
+      }
+    ],
+    "breakpoints": [
+      { "language": "kotlin" },
+      { "language": "java" }
+    ],
+    "commands": [
+      {
+        "command": "kotlinDebugger.attach",
+        "title": "Attach to JVM (host:port)…",
+        "category": "Kotlin Debugger"
+      },
+      {
+        "command": "kotlinDebugger.showLog",
+        "title": "Show Debug Adapter Log",
+        "category": "Kotlin Debugger"
+      }
+    ],
+    "configuration": {
+      "title": "Kotlin Debugger",
+      "properties": {
+        "kotlinDebugger.javaHome": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "JDK (17+) used to run the debug adapter. Defaults to `JAVA_HOME`, then `java` on `PATH`. The *debuggee* can be any JVM with JDWP (e.g. JDK 21)."
+        },
+        "kotlinDebugger.adapterJvmArgs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["-Xmx512m"],
+          "description": "Extra JVM options for the debug adapter process."
+        },
+        "kotlinDebugger.logLevel": {
+          "type": "string",
+          "enum": ["ERROR", "WARN", "INFO", "DEBUG", "TRACE"],
+          "default": "INFO",
+          "description": "Log level of the debug adapter (see 'Kotlin Debugger: Show Debug Adapter Log')."
+        },
+        "kotlinDebugger.traceProtocol": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log all Debug Adapter Protocol messages to the 'Kotlin Debugger' output channel."
+        }
+      }
+    },
+    "debuggers": [
+      {
+        "type": "kotlin-jvm",
+        "label": "Kotlin (JVM)",
+        "languages": ["kotlin"],
+        "configurationAttributes": {
+          "attach": {
+            "required": ["port"],
+            "properties": {
+              "hostName": {
+                "type": "string",
+                "default": "localhost",
+                "description": "Host of the JVM to attach to (the JVM must run with -agentlib:jdwp=transport=dt_socket,server=y,address=*:<port>)."
+              },
+              "port": {
+                "type": "number",
+                "default": 5005,
+                "description": "JDWP port of the JVM."
+              },
+              "timeout": {
+                "type": "number",
+                "default": 30000,
+                "description": "How long to keep retrying the connection, in milliseconds."
+              },
+              "projectRoot": {
+                "type": "string",
+                "default": "${workspaceFolder}",
+                "description": "Folder containing the Kotlin/Java sources of the app (searched recursively; build/ and target/ are skipped)."
+              },
+              "sourcePaths": {
+                "type": "array",
+                "items": { "type": "string" },
+                "default": [],
+                "description": "Additional source folders (e.g. other repositories / modules) used to map breakpoints and stack frames."
+              },
+              "stepFilters": {
+                "type": "array",
+                "items": { "type": "string" },
+                "default": [],
+                "description": "Extra class patterns (e.g. \"com.acme.generated.*\") that 'Step Into' skips, in addition to JDK/Kotlin/Spring/library defaults."
+              },
+              "suspendAllThreads": {
+                "type": "boolean",
+                "default": false,
+                "description": "Suspend all threads when a breakpoint is hit (default: only the hitting thread, so a server keeps serving other requests)."
+              },
+              "showToString": {
+                "type": "boolean",
+                "default": true,
+                "description": "Show toString() of project classes (e.g. data classes) and common value types in the Variables view."
+              },
+              "asyncStackTraces": {
+                "type": "boolean",
+                "default": true,
+                "description": "Reconstruct coroutine callers (async stack) from the continuation chain."
+              },
+              "coroutineStepping": {
+                "type": "boolean",
+                "default": true,
+                "description": "'Step Over' a suspending call continues in the same coroutine after it resumes (possibly on another thread)."
+              },
+              "invocationTimeout": {
+                "type": "number",
+                "default": 5000,
+                "description": "Max milliseconds for a method call made by expression evaluation/toString before it is interrupted."
+              },
+              "logLevel": {
+                "type": "string",
+                "enum": ["ERROR", "WARN", "INFO", "DEBUG", "TRACE"],
+                "description": "Overrides kotlinDebugger.logLevel for this session."
+              }
+            }
+          },
+          "launch": {
+            "required": ["mainClass"],
+            "properties": {
+              "mainClass": {
+                "type": "string",
+                "description": "Fully qualified main class, e.g. com.example.demo.DemoApplicationKt (top-level `fun main` in Foo.kt compiles to FooKt)."
+              },
+              "projectRoot": {
+                "type": "string",
+                "default": "${workspaceFolder}",
+                "description": "Project folder (sources + Maven/Gradle build used to compute the classpath)."
+              },
+              "classPaths": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Explicit runtime classpath. If omitted it is computed with Maven (dependency:build-classpath) or Gradle."
+              },
+              "modulePaths": { "type": "array", "items": { "type": "string" } },
+              "vmArgs": {
+                "type": ["string", "array"],
+                "default": "",
+                "description": "JVM options, e.g. \"-Xmx1g -Dspring.profiles.active=dev\"."
+              },
+              "args": {
+                "type": ["string", "array"],
+                "default": "",
+                "description": "Program arguments."
+              },
+              "cwd": { "type": "string", "default": "${workspaceFolder}" },
+              "env": { "type": "object", "default": {} },
+              "javaExec": { "type": "string", "description": "java executable for the debuggee (default: the adapter's JDK)." },
+              "sourcePaths": { "type": "array", "items": { "type": "string" }, "default": [] },
+              "stepFilters": { "type": "array", "items": { "type": "string" }, "default": [] },
+              "suspendAllThreads": { "type": "boolean", "default": false },
+              "showToString": { "type": "boolean", "default": true },
+              "asyncStackTraces": { "type": "boolean", "default": true },
+              "coroutineStepping": { "type": "boolean", "default": true },
+              "invocationTimeout": { "type": "number", "default": 5000 },
+              "logLevel": { "type": "string", "enum": ["ERROR", "WARN", "INFO", "DEBUG", "TRACE"] }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "kotlin-jvm",
+            "request": "attach",
+            "name": "Attach to JVM (Kotlin)",
+            "hostName": "localhost",
+            "port": 5005,
+            "projectRoot": "${workspaceFolder}"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Kotlin: Attach to JVM / Spring Boot (JDWP)",
+            "description": "Attach to a JVM started with -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005",
+            "body": {
+              "type": "kotlin-jvm",
+              "request": "attach",
+              "name": "Attach to Spring Boot (Kotlin)",
+              "hostName": "localhost",
+              "port": 5005,
+              "projectRoot": "^\"\\${workspaceFolder}\""
+            }
+          },
+          {
+            "label": "Kotlin: Attach to remote JVM (container/Kubernetes)",
+            "description": "Attach through a mapped/forwarded port; keeps waiting up to 2 minutes for the JVM",
+            "body": {
+              "type": "kotlin-jvm",
+              "request": "attach",
+              "name": "Attach to remote JVM (Kotlin)",
+              "hostName": "${1:my-host}",
+              "port": 5005,
+              "timeout": 120000,
+              "projectRoot": "^\"\\${workspaceFolder}\""
+            }
+          },
+          {
+            "label": "Kotlin: Launch main class",
+            "description": "Start a Kotlin main class under the debugger",
+            "body": {
+              "type": "kotlin-jvm",
+              "request": "launch",
+              "name": "Launch Kotlin app",
+              "mainClass": "${1:com.example.MainKt}",
+              "projectRoot": "^\"\\${workspaceFolder}\""
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile",
+    "test:e2e": "npm run compile && node ./out/test/runE2E.js",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.2.1",
+    "mocha": "^10.4.0",
+    "typescript": "^5.4.5"
+  }
+}
