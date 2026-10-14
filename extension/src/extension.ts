@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
+import { registerCompletion } from "./completion/provider";
 import { findJava } from "./java";
 
 export const DEBUG_TYPE = "kotlin-jvm";
@@ -19,6 +20,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand("kotlinDebugger.attach", attachCommand),
         vscode.commands.registerCommand("kotlinDebugger.showLog", () => openAdapterLog()),
     );
+    registerCompletion(context, output);
 }
 
 export function deactivate(): void { /* adapter processes are owned by VS Code */ }

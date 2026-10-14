@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.1.0
+
+- Completion in Kotlin files, without a JVM, build tool or language server:
+  - `value.` lists the members of the expression's inferred type plus the applicable extension functions, with Kotlin types and generics bound.
+  - `ClassName.` lists statics, enum entries and companion/`object` members; `package.` lists packages and classes.
+  - Without a dot: locals and parameters in scope, members of `this`, top-level functions, named arguments, classes and keywords.
+  - Classes come from the JDK, the Maven/Gradle dependencies (resolved from the build files and the local caches), the compiled project and its Kotlin sources, including unsaved editor text. Kotlin declarations are read from `@Metadata` and the stdlib's `.kotlin_builtins`.
+  - Classes and extensions that aren't imported add the import.
+- Parameter hints for function and constructor calls.
+- New settings: `kotlinDebugger.completion.enabled` and `kotlinDebugger.completion.classpath`.
+
 ## 2.0.0
 
 Complete rewrite of the adapter and extension.
