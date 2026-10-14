@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.1
+
+- Shorter Marketplace README with a demo and a table of supported versions. Usage and configuration moved to the project README.
+- The license is now MIT.
+
 ## 2.1.0
 
 - Completion in Kotlin files, without a JVM, build tool or language server:

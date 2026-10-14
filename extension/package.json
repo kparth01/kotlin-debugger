@@ -2,7 +2,7 @@
   "name": "kotlin-debugger",
   "displayName": "Kotlin Debugger (JVM)",
   "description": "Debug Kotlin/JVM and Spring Boot apps from VS Code: attach to any JVM over JDWP, Kotlin source breakpoints (incl. inline functions, lambdas, coroutines), stepping, variables and Kotlin expression evaluation.",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "publisher": "kparth01",
   "license": "MIT",
   "icon": "resources/logo128.png",
