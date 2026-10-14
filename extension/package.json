@@ -4,7 +4,7 @@
   "description": "Debug Kotlin/JVM and Spring Boot apps from VS Code: attach to any JVM over JDWP, Kotlin source breakpoints (incl. inline functions, lambdas, coroutines), stepping, variables and Kotlin expression evaluation.",
   "version": "2.1.0",
   "publisher": "kparth01",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "icon": "resources/logo128.png",
   "repository": {
     "type": "git",
