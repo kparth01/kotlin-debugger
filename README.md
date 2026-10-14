@@ -40,6 +40,9 @@ VS Code ──DAP──▶ kotlin-debug-adapter.jar ──JDI/JDWP──▶ your
 | Evaluate / watch / hover / Debug Console | ✅ Kotlin expression subset (below) |
 | Set variable | ✅ locals, fields, array elements |
 | `suspend` functions / coroutines | ✅ breakpoints, variables, async callers, **step over a suspension point** (continues in the same coroutine, even on another thread) |
+| Code completion in `.kt` files: `value.`, `ClassName.`, `package.` | ✅ members of the inferred type as Kotlin sees them (`List`/`MutableList` built-ins, getters as properties, `size` not `size()`), stdlib and library extension functions with generics bound (`map(transform: (String) -> R)`), static members, enum constants, Kotlin `object`/companion members, packages. Uses the JDK, the Maven/Gradle dependencies, compiled classes and the project's sources, including code that isn't compiled yet. Not-imported classes and extensions add their `import`. No JVM or build tool is started |
+| Completion without a dot | ✅ locals and parameters in scope (with their types), members of `this`, top-level functions (`listOf`, `require`, …), named arguments inside a call (`postfix = `), classes (not-imported ones add the import), keywords |
+| Parameter hints | ✅ overloads of the called function or constructor, with the active parameter (named arguments too) |
 
 **Kotlin-aware stepping**
 - *Step Over* a call to an inline function does not enter its body. Inline lambda bodies on
@@ -194,6 +197,8 @@ SMAP data the debugger uses. Recommendations:
 | `kotlinDebugger.adapterJvmArgs` | JVM options for the adapter (default `-Xmx512m`) |
 | `kotlinDebugger.logLevel` | Adapter log level. **Kotlin Debugger: Show Debug Adapter Log** opens the log |
 | `kotlinDebugger.traceProtocol` | Log every DAP message to the *Kotlin Debugger* output channel |
+| `kotlinDebugger.completion.enabled` | Completion and parameter hints in Kotlin files (default `true`). Disable it if another Kotlin language server already provides them |
+| `kotlinDebugger.completion.classpath` | Extra jars or class directories for completion, relative to the project (`lib/*` = every jar in `lib`) |
 
 ## Known limitations
 
@@ -218,6 +223,13 @@ SMAP data the debugger uses. Recommendations:
 - **Source mapping.** Breakpoints need the running classes to come from the open sources. Mismatched sources give wrong or unverified lines. Library code without sources in the workspace shows as de-emphasized frames with no editor (source jars are not attached).
 - **Not implemented:** data and field watchpoints, Restart Frame, Jump to Cursor (`goto`), a disassembly view, and column breakpoints on lambdas within a line. Run to Cursor works.
 - **JDWP** allows one debugger connection per JVM at a time.
+- **Completion** infers types from the source text heuristically. It is not the Kotlin compiler.
+  - Supported receivers: declarations with a type or an initializer, parameters, `for`/destructured/lambda variables (`it`), `this` (also in `apply { }` and extension functions), and chains of calls and properties. Generic results are bound from receivers, arguments and lambda results (`list.map { it.name }` is `List<String>`).
+  - Not inferred: smart casts after `is` checks, `if`/`when`/`try` expressions used as values, overload resolution beyond the argument count and the first argument's type, and receivers of lambdas passed to Java SAM parameters. What it can't type gets no member list.
+  - Dependencies must already be in `~/.m2` or the Gradle cache: build the project once. The *Kotlin Debugger* output channel lists the missing ones.
+  - Gradle dependencies are read from string coordinates, `kotlin("…")` and `gradle/libs.versions.toml`. Versions set by a BOM or plugin use the newest version available locally.
+  - Project code is read from the `.kt` sources (unsaved editor text included). Compiled classes fill in types the source leaves to inference.
+  - Static `ClassName.` completion of compiled Kotlin classes reads bytecode: value-class types show their underlying type, and properties renamed with `@JvmName` show as methods.
 
 ## Troubleshooting
 

@@ -13,7 +13,7 @@ echo "==> Building Spring Boot sample"
 (cd "$ROOT/samples/spring-boot-kotlin-demo" && mvn -q -B -DskipTests package)
 
 echo "==> Adapter tests"
-(cd "$ROOT/adapter" && mvn -B test | grep -E "Tests run:|FAIL|ERROR" || true)
+(cd "$ROOT/adapter" && mvn -B test | grep -E "Tests run:|FAIL|ERROR")
 (cd "$ROOT/adapter" && mvn -q -B -DskipTests package)
 mkdir -p "$ROOT/extension/server"
 cp "$ROOT/adapter/target/kotlin-debug-adapter.jar" "$ROOT/extension/server/"
@@ -24,6 +24,8 @@ cd "$ROOT/extension"
 npm run --silent compile
 # When launched from inside VS Code (integrated terminal / extensions), these variables would make
 # the test instance start in Node mode or talk to the parent window.
-env -u ELECTRON_RUN_AS_NODE -u VSCODE_IPC_HOOK_CLI -u VSCODE_PID -u VSCODE_CWD -u VSCODE_NLS_CONFIG \
-    -u VSCODE_HANDLES_UNCAUGHT_ERRORS -u VSCODE_ESM_ENTRYPOINT -u VSCODE_CRASH_REPORTER_PROCESS_TYPE \
-    -u VSCODE_CODE_CACHE_PATH node out/test/runE2E.js
+for suite in springBoot completion; do
+  env -u ELECTRON_RUN_AS_NODE -u VSCODE_IPC_HOOK_CLI -u VSCODE_PID -u VSCODE_CWD -u VSCODE_NLS_CONFIG \
+      -u VSCODE_HANDLES_UNCAUGHT_ERRORS -u VSCODE_ESM_ENTRYPOINT -u VSCODE_CRASH_REPORTER_PROCESS_TYPE \
+      -u VSCODE_CODE_CACHE_PATH KDA_E2E_SUITE="$suite" node out/test/runE2E.js
+done

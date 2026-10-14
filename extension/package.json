@@ -2,7 +2,7 @@
   "name": "kotlin-debugger",
   "displayName": "Kotlin Debugger (JVM)",
   "description": "Debug Kotlin/JVM and Spring Boot apps from VS Code: attach to any JVM over JDWP, Kotlin source breakpoints (incl. inline functions, lambdas, coroutines), stepping, variables and Kotlin expression evaluation.",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "publisher": "kparth01",
   "license": "Apache-2.0",
   "icon": "resources/logo128.png",
@@ -88,6 +88,17 @@
           "type": "boolean",
           "default": false,
           "description": "Log all Debug Adapter Protocol messages to the 'Kotlin Debugger' output channel."
+        },
+        "kotlinDebugger.completion.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Completion and parameter hints in Kotlin files: members and extension functions after `value.` (types are inferred from the source), static and companion members after `ClassName.`, packages and classes after `a.b.`. Classes are read from the JDK, the dependencies declared in `pom.xml` or the Gradle build (found in the local Maven/Gradle caches), the compiled project and its Kotlin sources. No JVM or build tool is started."
+        },
+        "kotlinDebugger.completion.classpath": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "markdownDescription": "Extra jars or class directories for completion, relative to the project. `lib/*` adds every jar in `lib`."
         }
       }
     },
