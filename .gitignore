@@ -5,6 +5,7 @@ dist/
 node_modules/
 *.class
 extension/server/*.jar
+extension/maven/
 *.vsix
 
 # IDE / OS

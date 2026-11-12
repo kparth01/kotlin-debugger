@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.3.0
+
+- **Maven view** in the activity bar, for every `pom.xml` of the workspace (modules hang below their parent):
+  - **Lifecycle** (clean, validate, compile, test, package, verify, install, site, deploy), **Plugins** with the goals each plugin really has (read from the plugin's descriptor in the local repository), **Dependencies**, **Profiles** (checkboxes) and **Run Configurations** (goals you saved).
+  - Run with the run button or a double-click; **Execute Maven Goal…** takes any command line and remembers earlier ones; **Maven Options** switches offline, skip tests, update snapshots and debug output for every run.
+  - Kotlin and Java compiler errors of a run appear in the Problems panel and open the file at the line.
+  - **Debug** on a goal starts it with the JVM waiting for the debugger and attaches the Kotlin debugger: the application for `spring-boot:run`, the test JVM for `test`/`verify`, Maven's own JVM otherwise. Stopping the session stops Maven.
+- **Project JDK**: you choose the JDK of a workspace folder in the Maven view, the status bar or with **Kotlin: Select Project JDK…**. The list has every JDK found on the machine (`JAVA_HOME`, the system locations, Homebrew, SDKMAN, asdf, mise, jenv, `~/.jdks`, Gradle toolchains, `kotlinDebugger.jdks`), marks the one that matches the Java version of the `pom.xml`, and lets you browse for another.
+  - Every Maven run from the view uses it (`JAVA_HOME` and `PATH`). The first run asks when none is chosen yet; nothing is picked silently.
+  - Once chosen, completion reads the JDK classes from it and a `kotlin-jvm` launch without `javaExec` starts the app with it. The choice is saved as `kotlinDebugger.projectJdk` in the folder's settings.
+- Maven itself: `kotlinDebugger.maven.executable` when set, else the project's `mvnw`, else the Maven 3.9 that now ships inside the extension, else `mvn` on `PATH`. Nothing is downloaded by the extension.
+- New settings: `kotlinDebugger.projectJdk`, `kotlinDebugger.jdks`, `kotlinDebugger.maven.executable`, `kotlinDebugger.maven.arguments`.
+
 ## 2.2.0
 
 - A completion's new `import` goes to its sorted place instead of below the last import. The order is IntelliJ IDEA's default: other imports, then `java`, `javax`, `kotlin`, then alias imports, each group in ASCII order. `kotlinDebugger.imports.layout` switches to one ASCII-ordered block, and an `ij_kotlin_imports_layout` in `.editorconfig` takes precedence over the setting.

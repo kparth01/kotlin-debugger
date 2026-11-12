@@ -5,7 +5,7 @@
 #   scripts/build.sh               # build + unit/integration tests of the adapter
 #   scripts/build.sh --skip-tests  # build only
 #
-# Requires: JDK 17+ (JAVA_HOME or java on PATH), Maven 3.9+, Node.js 18+.
+# Requires: JDK 17+ (JAVA_HOME or java on PATH), Maven 3.9+, Node.js 18+, curl (downloads the Maven to bundle).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,7 +19,7 @@ echo "==> Java:  $(java -version 2>&1 | head -1)"
 echo "==> Maven: $(mvn -v 2>/dev/null | head -1)"
 echo "==> Node:  $(node -v)"
 
-echo "==> [1/3] Debug adapter (Kotlin, JDI/JDWP, DAP)"
+echo "==> [1/4] Debug adapter (Kotlin, JDI/JDWP, DAP)"
 cd "$ROOT/adapter"
 if $SKIP_TESTS; then
   mvn -q -B -DskipTests package
@@ -32,12 +32,15 @@ mkdir -p "$ROOT/extension/server"
 cp target/kotlin-debug-adapter.jar "$ROOT/extension/server/kotlin-debug-adapter.jar"
 echo "    adapter: $(java -jar "$ROOT/extension/server/kotlin-debug-adapter.jar" --version)"
 
-echo "==> [2/3] VS Code extension (TypeScript)"
+echo "==> [2/4] Bundled Maven (for the Maven view)"
+"$ROOT/scripts/fetch-maven.sh"
+
+echo "==> [3/4] VS Code extension (TypeScript)"
 cd "$ROOT/extension"
 if [[ -f package-lock.json ]]; then npm ci --no-audit --no-fund --silent; else npm install --no-audit --no-fund --silent; fi
 npm run --silent compile
 
-echo "==> [3/3] Packaging VSIX"
+echo "==> [4/4] Packaging VSIX"
 mkdir -p "$ROOT/dist"
 npx --no-install vsce package --no-dependencies --allow-missing-repository --skip-license -o "$ROOT/dist/" >/dev/null
 VSIX="$(ls -t "$ROOT"/dist/*.vsix | head -1)"

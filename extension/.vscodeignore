@@ -7,4 +7,5 @@
 !syntaxes/**
 !resources/**
 !server/kotlin-debug-adapter.jar
+!maven/**
 !out/src/**/*.js

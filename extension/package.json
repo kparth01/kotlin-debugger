@@ -1,8 +1,8 @@
 {
   "name": "kotlin-debugger",
   "displayName": "Kotlin Debugger (JVM)",
-  "description": "Debug Kotlin/JVM and Spring Boot apps from VS Code: attach to any JVM over JDWP, Kotlin source breakpoints (incl. inline functions, lambdas, coroutines), stepping, variables and Kotlin expression evaluation.",
-  "version": "2.2.0",
+  "description": "Debug Kotlin/JVM and Spring Boot apps from VS Code: attach to any JVM over JDWP, Kotlin source breakpoints (incl. inline functions, lambdas, coroutines), stepping, variables and Kotlin expression evaluation. With Kotlin completion, imports and a Maven view that builds with the JDK you choose.",
+  "version": "2.3.0",
   "publisher": "kparth01",
   "license": "MIT",
   "icon": "resources/logo128.png",
@@ -27,6 +27,9 @@
   ],
   "main": "./out/src/extension.js",
   "activationEvents": [
+    "workspaceContains:pom.xml",
+    "workspaceContains:*/pom.xml",
+    "workspaceContains:*/*/pom.xml",
     "onDebugResolve:kotlin-jvm",
     "onDebugDynamicConfigurations:kotlin-jvm",
     "onDebugInitialConfigurations",
@@ -67,13 +70,105 @@
         "command": "kotlinDebugger.importMissing",
         "title": "Add Missing Imports",
         "category": "Kotlin"
-      }
+      },
+      { "command": "kotlinDebugger.selectProjectJdk", "title": "Select Project JDK…", "category": "Kotlin", "icon": "$(coffee)" },
+      { "command": "kotlinDebugger.maven.refresh", "title": "Reload Maven Projects", "category": "Maven", "icon": "$(refresh)" },
+      { "command": "kotlinDebugger.maven.execute", "title": "Execute Maven Goal…", "category": "Maven", "icon": "$(terminal)" },
+      { "command": "kotlinDebugger.maven.options", "title": "Maven Options (Offline, Skip Tests, …)", "category": "Maven", "icon": "$(settings-gear)" },
+      { "command": "kotlinDebugger.maven.runGoal", "title": "Run", "category": "Maven", "icon": "$(play)" },
+      { "command": "kotlinDebugger.maven.debugGoal", "title": "Debug", "category": "Maven", "icon": "$(debug-alt)" },
+      { "command": "kotlinDebugger.maven.addRun", "title": "Add Run Configuration…", "category": "Maven", "icon": "$(add)" },
+      { "command": "kotlinDebugger.maven.removeRun", "title": "Remove", "category": "Maven", "icon": "$(trash)" },
+      { "command": "kotlinDebugger.maven.openPom", "title": "Open pom.xml", "category": "Maven", "icon": "$(go-to-file)" },
+      { "command": "kotlinDebugger.maven.activate", "title": "Run on Double-Click", "category": "Maven" }
     ],
-    "menus": {
-      "commandPalette": [
-        { "command": "kotlinDebugger.importMissing", "when": "editorLangId == kotlin" }
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "kotlinMaven", "title": "Maven", "icon": "resources/maven.svg" }
       ]
     },
+    "views": {
+      "kotlinMaven": [
+        { "id": "kotlinDebugger.maven", "name": "Projects", "when": "kotlinDebugger.hasMavenProject" }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        { "command": "kotlinDebugger.importMissing", "when": "editorLangId == kotlin" },
+        { "command": "kotlinDebugger.maven.runGoal", "when": "false" },
+        { "command": "kotlinDebugger.maven.debugGoal", "when": "false" },
+        { "command": "kotlinDebugger.maven.removeRun", "when": "false" },
+        { "command": "kotlinDebugger.maven.openPom", "when": "false" },
+        { "command": "kotlinDebugger.maven.activate", "when": "false" },
+        { "command": "kotlinDebugger.maven.execute", "when": "kotlinDebugger.hasMavenProject" },
+        { "command": "kotlinDebugger.maven.addRun", "when": "kotlinDebugger.hasMavenProject" },
+        { "command": "kotlinDebugger.maven.options", "when": "kotlinDebugger.hasMavenProject" }
+      ],
+      "view/title": [
+        { "command": "kotlinDebugger.maven.execute", "when": "view == kotlinDebugger.maven", "group": "navigation@1" },
+        { "command": "kotlinDebugger.selectProjectJdk", "when": "view == kotlinDebugger.maven", "group": "navigation@2" },
+        { "command": "kotlinDebugger.maven.options", "when": "view == kotlinDebugger.maven", "group": "navigation@3" },
+        { "command": "kotlinDebugger.maven.refresh", "when": "view == kotlinDebugger.maven", "group": "navigation@4" }
+      ],
+      "view/item/context": [
+        { "command": "kotlinDebugger.maven.runGoal", "when": "view == kotlinDebugger.maven && viewItem =~ /^maven(Goal|Run)$/", "group": "inline@1" },
+        { "command": "kotlinDebugger.maven.debugGoal", "when": "view == kotlinDebugger.maven && viewItem =~ /^maven(Goal|Run)$/", "group": "inline@2" },
+        { "command": "kotlinDebugger.maven.runGoal", "when": "view == kotlinDebugger.maven && viewItem =~ /^maven(Goal|Run)$/", "group": "1_run@1" },
+        { "command": "kotlinDebugger.maven.debugGoal", "when": "view == kotlinDebugger.maven && viewItem =~ /^maven(Goal|Run)$/", "group": "1_run@2" },
+        { "command": "kotlinDebugger.maven.removeRun", "when": "view == kotlinDebugger.maven && viewItem == mavenRun", "group": "2_edit@1" },
+        { "command": "kotlinDebugger.maven.addRun", "when": "view == kotlinDebugger.maven && viewItem == mavenRuns", "group": "inline@1" },
+        { "command": "kotlinDebugger.maven.execute", "when": "view == kotlinDebugger.maven && viewItem == mavenProject", "group": "inline@1" },
+        { "command": "kotlinDebugger.maven.openPom", "when": "view == kotlinDebugger.maven && viewItem == mavenProject", "group": "inline@2" },
+        { "command": "kotlinDebugger.maven.execute", "when": "view == kotlinDebugger.maven && viewItem == mavenProject", "group": "1_run@1" },
+        { "command": "kotlinDebugger.maven.openPom", "when": "view == kotlinDebugger.maven && viewItem == mavenProject", "group": "1_run@2" },
+        { "command": "kotlinDebugger.selectProjectJdk", "when": "view == kotlinDebugger.maven && viewItem == mavenJdk", "group": "inline@1" }
+      ]
+    },
+    "taskDefinitions": [
+      {
+        "type": "kotlin-maven",
+        "required": ["goals"],
+        "properties": {
+          "goals": { "type": "string", "description": "Maven goals and options, for example \"clean package\"." },
+          "pom": { "type": "string", "description": "The pom.xml of the project to build." }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "kotlin-maven",
+        "label": "Kotlin compiler errors in Maven output (Kotlin 2)",
+        "owner": "kotlin-maven",
+        "source": "kotlinc",
+        "fileLocation": "absolute",
+        "pattern": {
+          "regexp": "^\\[(ERROR|WARNING)\\]\\s+file://(?:/(?=[A-Za-z]:))?(.+?\\.kts?):(\\d+):(\\d+)\\s+(.*)$",
+          "severity": 1, "file": 2, "line": 3, "column": 4, "message": 5
+        }
+      },
+      {
+        "name": "kotlin-maven-legacy",
+        "label": "Kotlin compiler errors in Maven output (Kotlin 1)",
+        "owner": "kotlin-maven",
+        "source": "kotlinc",
+        "fileLocation": "absolute",
+        "pattern": {
+          "regexp": "^\\[(ERROR|WARNING)\\]\\s+(.+?\\.kts?): \\((\\d+), (\\d+)\\)\\s+(.*)$",
+          "severity": 1, "file": 2, "line": 3, "column": 4, "message": 5
+        }
+      },
+      {
+        "name": "javac-maven",
+        "label": "Java compiler errors in Maven output",
+        "owner": "kotlin-maven",
+        "source": "javac",
+        "fileLocation": "absolute",
+        "pattern": {
+          "regexp": "^\\[(ERROR|WARNING)\\]\\s+(.+?\\.java):\\[(\\d+),(\\d+)\\]\\s+(.*)$",
+          "severity": 1, "file": 2, "line": 3, "column": 4, "message": 5
+        }
+      }
+    ],
     "keybindings": [
       {
         "command": "editor.action.quickFix",
@@ -105,6 +200,31 @@
           "type": "boolean",
           "default": false,
           "description": "Log all Debug Adapter Protocol messages to the 'Kotlin Debugger' output channel."
+        },
+        "kotlinDebugger.projectJdk": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "markdownDescription": "JDK home of the project, chosen with **Select Project JDK…** (the Maven view, or the status bar). Every Maven run from the Maven view uses it. When set, completion reads the JDK classes from it and a `kotlin-jvm` launch without `javaExec` starts the app with it."
+        },
+        "kotlinDebugger.jdks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "markdownDescription": "JDK homes to offer in **Select Project JDK…** in addition to the ones found on the machine (`JAVA_HOME`, the system locations, SDKMAN, asdf, mise, jenv, `~/.jdks`, Gradle toolchains)."
+        },
+        "kotlinDebugger.maven.executable": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "markdownDescription": "The `mvn` script or a Maven home to use in the Maven view. When empty: the project's `mvnw`, else the Maven bundled with the extension, else `mvn` on `PATH`."
+        },
+        "kotlinDebugger.maven.arguments": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "scope": "resource",
+          "markdownDescription": "Arguments added to every Maven run from the Maven view, for example `[\"-T\", \"1C\"]`."
         },
         "kotlinDebugger.completion.enabled": {
           "type": "boolean",

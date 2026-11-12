@@ -330,7 +330,7 @@ suite("Completion: class members and packages", function () {
             assert.ok(!/^import java\.(util|sql)\.Date$/m.test(text), "Date has two candidates");
         });
 
-        test("addUnambiguousOnTheFly: the import appears once the cursor has left the line; an undo is respected", async () => {
+        test("addUnambiguousOnTheFly: the import appears once the cursor has left the line; a removed import stays removed", async () => {
             const setting = vscode.workspace.getConfiguration("kotlinDebugger");
             await setting.update("imports.addUnambiguousOnTheFly", true, vscode.ConfigurationTarget.Global);
             try {
@@ -349,12 +349,13 @@ suite("Completion: class members and packages", function () {
                 await settle(() => hasImport("import java.util.UUID"));
                 assert.ok(hasImport("import java.util.UUID"));
                 assert.ok(!doc.getText().includes("import java.util.Date") && !doc.getText().includes("import java.sql.Date"), "two candidates: never automatic");
-                // undo the UUID import: it is not added a second time
-                await vscode.commands.executeCommand("undo");
-                assert.ok(!hasImport("import java.util.UUID"), "undone");
+                // the user takes the UUID import out again (an undo, or deleting the line): it is not added a second time
+                const line = doc.getText().split("\n").indexOf("import java.util.UUID");
+                await editor.edit(e => e.delete(new vscode.Range(line, 0, line + 1, 0)));
+                assert.ok(!hasImport("import java.util.UUID"), "removed");
                 editor.selection = new vscode.Selection(last - 1, 0, last - 1, 0);
                 await new Promise(resolve => setTimeout(resolve, 1500));
-                assert.ok(!hasImport("import java.util.UUID"), "an undone import stays undone");
+                assert.ok(!hasImport("import java.util.UUID"), "a removed import stays removed");
             } finally {
                 await setting.update("imports.addUnambiguousOnTheFly", undefined, vscode.ConfigurationTarget.Global);
             }

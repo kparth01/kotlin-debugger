@@ -317,8 +317,9 @@ class ClassMemberCompletionProvider implements vscode.CompletionItemProvider, vs
         const yieldToHost = () => new Promise(resolve => setImmediate(resolve));
         await yieldToHost();
         const started = Date.now();
-        const config = vscode.workspace.getConfiguration("kotlinDebugger");
-        const jdk = findJdkClasses(config.get<string>("javaHome") || undefined);
+        const config = vscode.workspace.getConfiguration("kotlinDebugger", root ? vscode.Uri.file(root) : undefined);
+        // The Project JDK (when one is chosen) supplies the JDK classes; else the adapter's JDK setting, JAVA_HOME, ...
+        const jdk = findJdkClasses(config.get<string>("projectJdk") || config.get<string>("javaHome") || undefined);
         const project: ProjectClasspath = root ? resolveClasspath(root) : { buildTool: "none", entries: [], missing: [] };
         const extra = config.get<string[]>("completion.classpath", []).flatMap(p => expand(path.resolve(root ?? "", p)));
         const sources: ClassSource[] = [];

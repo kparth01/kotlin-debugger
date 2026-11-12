@@ -43,7 +43,7 @@ export function findJdkClasses(configuredHome?: string): string | undefined {
     return undefined;
 }
 
-function javaHomeOnPath(): string | undefined {
+export function javaHomeOnPath(): string | undefined {
     const exe = process.platform === "win32" ? "java.exe" : "java";
     for (const dir of (process.env.PATH ?? "").split(path.delimiter)) {
         const file = dir && path.join(dir, exe);
@@ -54,7 +54,7 @@ function javaHomeOnPath(): string | undefined {
     return undefined;
 }
 
-function installedJdks(): string[] {
+export function installedJdks(): string[] {
     const newestFirst = (root: string, suffix = "") =>
         list(root).sort(compareVersions).reverse().map(d => path.join(root, d, suffix));
     if (process.platform === "darwin") {
@@ -80,12 +80,17 @@ interface Repository {
     versions(groupId: string, artifactId: string): string[];
 }
 
-function mavenRepository(): Repository {
+/** The local Maven repository: `<localRepository>` of `~/.m2/settings.xml`, else `~/.m2/repository`. */
+export function mavenRepositoryRoot(): string {
     const settings = path.join(os.homedir(), ".m2", "settings.xml");
     const configured = fs.existsSync(settings)
         ? /<localRepository>\s*([^<]+?)\s*<\/localRepository>/.exec(fs.readFileSync(settings, "utf8"))?.[1]
         : undefined;
-    const root = configured?.replace(/\$\{user\.home\}/g, os.homedir()) ?? path.join(os.homedir(), ".m2", "repository");
+    return configured?.replace(/\$\{user\.home\}/g, os.homedir()) ?? path.join(os.homedir(), ".m2", "repository");
+}
+
+function mavenRepository(): Repository {
+    const root = mavenRepositoryRoot();
     const dir = (g: string, a: string) => path.join(root, ...g.split("."), a);
     return {
         file: (g, a, v, ext, classifier) => existing(path.join(dir(g, a), v, `${a}-${v}${classifier ? `-${classifier}` : ""}.${ext}`)),
@@ -423,9 +428,9 @@ function gradleDependencies(script: string, catalog: string): Dependency[] {
 // ---------------------------------------------------------------------------------------------
 // Minimal XML (enough for POM files: elements and text)
 
-interface XmlElement { name: string; text: string; children: XmlElement[] }
+export interface XmlElement { name: string; text: string; children: XmlElement[] }
 
-function parseXml(xml: string): XmlElement {
+export function parseXml(xml: string): XmlElement {
     const root: XmlElement = { name: "", text: "", children: [] };
     const stack = [root];
     const token = /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>|<!DOCTYPE[^>]*>|<\/[^>]*>|<([\w.:-]+)[^>]*?(\/?)>|([^<]+)/g;
@@ -446,15 +451,15 @@ function parseXml(xml: string): XmlElement {
     return root;
 }
 
-function child(el: XmlElement | undefined, name: string): XmlElement | undefined {
+export function child(el: XmlElement | undefined, name: string): XmlElement | undefined {
     return el?.children.find(c => c.name === name);
 }
 
-function children(el: XmlElement | undefined, name: string): XmlElement[] {
+export function children(el: XmlElement | undefined, name: string): XmlElement[] {
     return el?.children.filter(c => c.name === name) ?? [];
 }
 
-function text(el: XmlElement | undefined, name: string): string | undefined {
+export function text(el: XmlElement | undefined, name: string): string | undefined {
     return child(el, name)?.text.trim() || undefined;
 }
 
