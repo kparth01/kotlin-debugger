@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.0
+
+- A completion's new `import` goes to its sorted place instead of below the last import. The order is IntelliJ IDEA's default: other imports, then `java`, `javax`, `kotlin`, then alias imports, each group in ASCII order. `kotlinDebugger.imports.layout` switches to one ASCII-ordered block, and an `ij_kotlin_imports_layout` in `.editorconfig` takes precedence over the setting.
+- A class whose simple name already means another class in the file is now offered too. It is inserted fully qualified and no import is added, so the existing name keeps its meaning.
+- The first import of a file is placed below the `package` directive and `@file:` annotations with blank lines around it; a file without a final line break no longer gets the import glued to its last line.
+
 ## 2.1.1
 
 - Shorter Marketplace README with a demo and a table of supported versions. Usage and configuration moved to the project README.

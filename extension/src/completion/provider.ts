@@ -4,10 +4,12 @@ import * as vscode from "vscode";
 import { ClassSource, DirSource, JarSource, JImageSource } from "./archives";
 import { ClassIndex, Entry, EntryKind, parseFileContext, qualifierAt } from "./classIndex";
 import { findBuildRoot, findJdkClasses, ProjectClasspath, resolveClasspath } from "./classpath";
+import { importPlanner, importTextEdit } from "./importEdits";
+import { escapeName, ImportPlanner } from "./imports";
 import { Inference, memberEntries, staticEntries, Value } from "./inference";
 import { kotlinSourceFiles, ProjectSources, readSource } from "./sources";
 import { TypeSystem } from "./typeSystem";
-import { binaryToClassId, classIdToBinary, renderType } from "./types";
+import { binaryToClassId, classIdToBinary, classType, kotlinIdOfJava, renderType } from "./types";
 
 const KINDS: Record<EntryKind, vscode.CompletionItemKind> = {
     package: vscode.CompletionItemKind.Module,
@@ -124,6 +126,7 @@ class ClassMemberCompletionProvider implements vscode.CompletionItemProvider, vs
         }
         if (token.isCancellationRequested) { return undefined; }
         const file = parseFileContext(text);
+        const imports = importPlanner(doc, text);
         const types = this.typeSystem(index);
         if (doc.uri.scheme === "file" && this.projectSources.get(index)?.set(doc.uri.fsPath, text)) { types.invalidate(); }
         let value: Value | undefined;
@@ -132,7 +135,7 @@ class ClassMemberCompletionProvider implements vscode.CompletionItemProvider, vs
             if (inference.inCommentOrString(dot)) { return undefined; }
             value = inference.receiver(dot);
             if (value?.kind === "value") {
-                return memberEntries(value.type, types, file).map(e => this.item(e, index, doc));
+                return memberEntries(value.type, types, file).map(e => this.item(e, index, imports));
             }
         } catch (e) {
             this.output.appendLine(`[completion] Type inference failed: ${(e as Error).stack ?? e}`);
@@ -140,7 +143,7 @@ class ClassMemberCompletionProvider implements vscode.CompletionItemProvider, vs
         const qualifier = qualifierAt(linePrefix);
         const entries = qualifier ? index.complete(qualifier, file) : [];
         if (!entries.length && value?.kind === "class") { entries.push(...staticEntries(value.id, types)); }
-        return entries.map(e => this.item(e, index, doc));
+        return entries.map(e => this.item(e, index, imports));
     }
 
     /** Parameter hints for the call around the cursor: overloads, active parameter (named arguments too). */
@@ -220,21 +223,32 @@ class ClassMemberCompletionProvider implements vscode.CompletionItemProvider, vs
         }
         const first = word[0]?.toLowerCase();
         const accept = (simple: string) => !first || simple[0].toLowerCase() === first;
-        const visible = new Set<string>();
+        const imports = importPlanner(doc, text);
+        /** Simple name → binary name of the class it means in this file. */
+        const visible = new Map<string, string>();
         for (const id of types.visibleClasses(file, accept)) {
             const simple = id.slice(id.lastIndexOf("/") + 1);
-            visible.add(simple);
+            // A type alias counts as its target: `ArrayList` is `java.util.ArrayList`.
+            visible.set(simple, classIdToBinary(types.expandAlias(classType(id)).id ?? id));
             entries.push({ kind: "class", name: simple, owner: classIdToBinary(id), group: 3 });
         }
         if (word.length >= 1) {
             for (const binary of index.classesStartingWith(word, 150)) {
                 const simple = binary.slice(binary.lastIndexOf("/") + 1);
-                if (visible.has(simple) || INTERNAL_PACKAGE.test(binary) || !types.isUsableClass(binaryToClassId(binary))) { continue; }
-                entries.push({ kind: "class", name: simple, owner: binary, importName: binary.replace(/\//g, ".").replace(/\$/g, "."), group: 4 });
+                if (INTERNAL_PACKAGE.test(binary) || !types.isUsableClass(binaryToClassId(binary))) { continue; }
+                const dotted = binary.replace(/\//g, ".").replace(/\$/g, ".");
+                const bound = visible.get(simple) ?? imports.explicitlyImported(simple)?.replace(/\./g, "/");
+                if (!bound) {
+                    entries.push({ kind: "class", name: simple, owner: binary, importName: dotted, group: 4 });
+                } else if (bound !== binary && kotlinIdOfJava(binary) === binaryToClassId(binary)) {
+                    // The name already means another class here: an import would change that, so this one is
+                    // inserted fully qualified. (JDK classes that Kotlin maps to a built-in are that built-in.)
+                    entries.push({ kind: "class", name: simple, owner: binary, qualifiedName: dotted, group: 4 });
+                }
             }
         }
         // Incomplete: VS Code asks again as the word grows, so the class list stays short and relevant.
-        return new vscode.CompletionList(entries.map(e => this.item(e, index, doc)), true);
+        return new vscode.CompletionList(entries.map(e => this.item(e, index, imports)), true);
     }
 
     private typeSystem(index: ClassIndex): TypeSystem {
@@ -319,11 +333,12 @@ class ClassMemberCompletionProvider implements vscode.CompletionItemProvider, vs
         }
     }
 
-    private item(e: Entry, index: ClassIndex, doc: vscode.TextDocument): vscode.CompletionItem {
+    private item(e: Entry, index: ClassIndex, imports: ImportPlanner): vscode.CompletionItem {
         const label: vscode.CompletionItemLabel = { label: e.name };
         const item = new vscode.CompletionItem(label, KINDS[e.kind]);
         const name = HARD_KEYWORDS.has(e.name) ? `\`${e.name}\`` : e.name;
-        const importPackage = e.importName?.slice(0, e.importName.lastIndexOf("."));
+        const qualified = e.importName ?? e.qualifiedName;
+        const importPackage = qualified?.slice(0, qualified.lastIndexOf("."));
         if (e.kind === "method") {
             const params = e.params ?? [];
             label.detail = `(${params.map((p, i) => param(p, !!e.vararg && i === params.length - 1)).join(", ")})`;
@@ -333,7 +348,7 @@ class ClassMemberCompletionProvider implements vscode.CompletionItemProvider, vs
             item.insertText = `${name} = `;
             item.filterText = e.name;
         } else {
-            item.insertText = name;
+            item.insertText = e.qualifiedName ? escapeName(e.qualifiedName) : name;
         }
         label.description = [e.type, importPackage].filter(Boolean).join(" · ") || undefined;
         if (e.kind !== "package" && e.kind !== "keyword") {
@@ -344,13 +359,15 @@ class ClassMemberCompletionProvider implements vscode.CompletionItemProvider, vs
             const docs = new vscode.MarkdownString().appendCodeblock(declaration(e), "kotlin");
             docs.appendMarkdown(e.pkg ? `${e.receiver ? "extension " : ""}from \`${e.pkg}\`` : e.kind === "variable" || e.kind === "namedArgument" ? "" : [owner && `\`${owner}\``, from].filter(Boolean).join(" — "));
             if (e.importName) { docs.appendMarkdown(`\n\nAdds \`import ${e.importName}\``); }
+            if (e.qualifiedName) { docs.appendMarkdown(`\n\nInserted as \`${e.qualifiedName}\`: \`${e.name}\` already means another class in this file`); }
             item.documentation = docs;
         }
         if (e.deprecated) { item.tags = [vscode.CompletionItemTag.Deprecated]; }
         // Members first, then nested classes, then inherited members.
         const nestedClass = ["class", "interface", "enum", "annotation"].includes(e.kind) && !!e.owner?.includes("$");
         item.sortText = `${e.group ?? (e.inherited ? 2 : nestedClass ? 1 : 0)}${e.name}`;
-        if (e.importName) { item.additionalTextEdits = [importEdit(doc, e.importName)]; }
+        const insertion = e.importName ? imports.plan(e.importName) : undefined;
+        if (insertion) { item.additionalTextEdits = [importTextEdit(insertion)]; }
         return item;
     }
 }
@@ -413,18 +430,4 @@ function declaration(e: Entry): string {
         case "interface": return `interface ${e.name}`;
         default: return `class ${e.name}`;
     }
-}
-
-/** Inserts `import <name>` after the last import, or after the package directive. */
-function importEdit(doc: vscode.TextDocument, name: string): vscode.TextEdit {
-    let lastImport = -1;
-    let packageLine = -1;
-    for (let i = 0; i < doc.lineCount; i++) {
-        const text = doc.lineAt(i).text;
-        if (/^\s*import\s/.test(text)) { lastImport = i; }
-        else if (packageLine < 0 && /^\s*package\s/.test(text)) { packageLine = i; }
-    }
-    if (lastImport >= 0) { return vscode.TextEdit.insert(new vscode.Position(lastImport + 1, 0), `import ${name}\n`); }
-    if (packageLine >= 0) { return vscode.TextEdit.insert(new vscode.Position(packageLine + 1, 0), `\nimport ${name}\n`); }
-    return vscode.TextEdit.insert(new vscode.Position(0, 0), `import ${name}\n\n`);
 }

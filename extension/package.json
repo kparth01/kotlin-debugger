@@ -2,7 +2,7 @@
   "name": "kotlin-debugger",
   "displayName": "Kotlin Debugger (JVM)",
   "description": "Debug Kotlin/JVM and Spring Boot apps from VS Code: attach to any JVM over JDWP, Kotlin source breakpoints (incl. inline functions, lambdas, coroutines), stepping, variables and Kotlin expression evaluation.",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "publisher": "kparth01",
   "license": "MIT",
   "icon": "resources/logo128.png",
@@ -99,6 +99,16 @@
           "items": { "type": "string" },
           "default": [],
           "markdownDescription": "Extra jars or class directories for completion, relative to the project. `lib/*` adds every jar in `lib`."
+        },
+        "kotlinDebugger.imports.layout": {
+          "type": "string",
+          "enum": ["intellij", "ascii"],
+          "enumDescriptions": [
+            "IntelliJ IDEA's default: all other imports, then java.*, javax.*, kotlin.*, then alias imports; ASCII order inside each group.",
+            "One block in ASCII order (Android Studio style)."
+          ],
+          "default": "intellij",
+          "markdownDescription": "Where a completion puts a new `import`. An `ij_kotlin_imports_layout` in the project's `.editorconfig` takes precedence."
         }
       }
     },
@@ -272,6 +282,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "vscode:prepublish": "npm run compile",
+    "test:unit": "npm run compile && mocha --ui tdd \"out/test/unit/**/*.test.js\"",
     "test:e2e": "npm run compile && node ./out/test/runE2E.js",
     "package": "vsce package --no-dependencies"
   },

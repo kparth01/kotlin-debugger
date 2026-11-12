@@ -18,10 +18,12 @@ echo "==> Adapter tests"
 mkdir -p "$ROOT/extension/server"
 cp "$ROOT/adapter/target/kotlin-debug-adapter.jar" "$ROOT/extension/server/"
 
-echo "==> VS Code end-to-end test"
+echo "==> Extension unit tests"
 cd "$ROOT/extension"
 [[ -d node_modules ]] || npm install --no-audit --no-fund --silent
-npm run --silent compile
+npm run --silent test:unit
+
+echo "==> VS Code end-to-end test"
 # When launched from inside VS Code (integrated terminal / extensions), these variables would make
 # the test instance start in Node mode or talk to the parent window.
 for suite in springBoot completion; do

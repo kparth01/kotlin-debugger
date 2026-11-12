@@ -24,6 +24,8 @@ export interface Entry {
     inherited?: boolean;
     /** The qualifier is not imported in the file: the import that makes the completion compile. */
     importName?: string;
+    /** The simple name already means another class in the file: this dotted name is inserted instead of adding an import. */
+    qualifiedName?: string;
     /** Extension functions/properties: the receiver type and the declaring package. */
     receiver?: string;
     pkg?: string;

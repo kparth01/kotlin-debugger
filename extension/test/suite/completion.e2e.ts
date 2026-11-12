@@ -177,6 +177,47 @@ suite("Completion: class members and packages", function () {
         assert.ok(named.has("customerId =") && named.has("lines ="), [...named].join(", "));
     });
 
+    /** Completion items at `¦` in `line`, inserted (unsaved) after the line containing the create marker. */
+    async function atCursor(line: string): Promise<vscode.CompletionItem[]> {
+        const doc = await vscode.workspace.openTextDocument(controller);
+        const editor = await vscode.window.showTextDocument(doc);
+        const marker = doc.getText().split("\n").findIndex(l => l.includes(create));
+        const [head] = line.split("¦");
+        await editor.edit(e => e.insert(doc.lineAt(marker).range.end, `\n        ${line.replace("¦", "")}`));
+        const position = new vscode.Position(marker + 1, 8 + head.length);
+        const list = await vscode.commands.executeCommand<vscode.CompletionList>("vscode.executeCompletionItemProvider", doc.uri, position);
+        await vscode.commands.executeCommand("workbench.action.files.revert");
+        return list.items;
+    }
+
+    test("a new import goes to its sorted place (IntelliJ layout), not below the last import", async () => {
+        const text = (await vscode.workspace.openTextDocument(controller)).getText().split("\n");
+        const lineOf = (statement: string) => { const i = text.indexOf(statement); assert.ok(i >= 0, statement); return i; };
+        const hasText = (await complete(controller, "val blank = StringUtils.")).find(i => name(i) === "hasText" && i.additionalTextEdits);
+        assert.ok(hasText, "StringUtils.hasText with an import");
+        // org.springframework.util sorts between org.springframework.http and org.springframework.web
+        assert.strictEqual(hasText.additionalTextEdits![0].range.start.line, lineOf("import org.springframework.http.ProblemDetail") + 1);
+        const itemCount = (await completeAfter(controller, create, ["order."])).find(i => name(i) === "itemCount");
+        assert.strictEqual(itemCount?.additionalTextEdits?.[0].range.start.line, lineOf("import com.example.demo.domain.OrderRequest") + 1);
+        const uuid = (await atCursor("UUI¦")).find(i => name(i) === "UUID");
+        assert.strictEqual(uuid?.additionalTextEdits?.[0].newText, "import java.util.UUID\n");
+        assert.strictEqual(uuid.additionalTextEdits[0].range.start.line, lineOf("import java.math.BigDecimal") + 1, "java.* stays below the other imports");
+    });
+
+    test("a class whose name is taken in the file is inserted fully qualified, without an import", async () => {
+        const orders = (await atCursor("Orde¦")).filter(i => name(i) === "Order");
+        const text = (i: vscode.CompletionItem) => typeof i.insertText === "string" ? i.insertText : i.insertText?.value;
+        const imported = orders.find(i => text(i) === "Order");
+        assert.ok(imported && !imported.additionalTextEdits, "the imported com.example.demo.domain.Order");
+        const spring = orders.find(i => text(i) === "org.springframework.core.annotation.Order");
+        assert.ok(spring, orders.map(text).join(", "));
+        assert.ok(!spring.additionalTextEdits, "no import: it would hide the imported Order");
+        assert.strictEqual((spring.label as vscode.CompletionItemLabel).description, "org.springframework.core.annotation");
+        // java.util.List is Kotlin's List: it is not offered as a second, qualified `List`
+        const lists = (await atCursor("Lis¦")).filter(i => name(i) === "List").map(text);
+        assert.ok(lists.includes("List") && !lists.includes("java.util.List"), lists.join(", "));
+    });
+
     test("package path lists subpackages and classes", async () => {
         const spring = names(await complete(controller, "import org.springframework."));
         assert.ok(spring.has("web") && spring.has("http") && spring.has("boot"), [...spring].join(", "));
