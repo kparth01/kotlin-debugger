@@ -1,9 +1,10 @@
 import { ClassSource } from "./archives";
 import { ACC_BRIDGE, ACC_FINAL, ACC_PUBLIC, ACC_STATIC, ACC_SYNTHETIC, ACC_VARARGS, ClassInfo, MethodInfo } from "./classfile";
-import { ClassIndex, FileContext } from "./classIndex";
+import { ClassIndex, FileContext, INTERNAL_PACKAGE } from "./classIndex";
 import { ClassKind, decodeBuiltins, decodeMetadata, KClass, KFunction, KParam, KProperty, KTypeParam, Visibility } from "./kotlinMetadata";
 import {
-    ANY, argType, classIdToBinary, classType, fromJava, javaClassOf, KType, NULLABLE_ANY, packageOf, substitute, unify,
+    ANY, argType, binaryToClassId, classIdToBinary, classType, fromJava, javaClassOf, kotlinIdOfJava, KType, NULLABLE_ANY, packageOf,
+    substitute, unify,
 } from "./types";
 
 /** A function or property as Kotlin code sees it, with Kotlin types. */
@@ -104,6 +105,7 @@ export class TypeSystem {
     private readonly usable = new Map<string, boolean>();
     private builtins?: Map<string, KClass>;
     private declarations?: { extensions: Map<string, PackageMember[]>; topLevel: Map<string, PackageMember[]>; aliases: Map<string, TypeAlias> };
+    private extensionNames?: Map<string, PackageMember[]>;
 
     constructor(private readonly index: ClassIndex, private readonly sources?: SourceProvider) {}
 
@@ -112,6 +114,7 @@ export class TypeSystem {
         this.models.clear();
         this.closures.clear();
         this.declarations = undefined;
+        this.extensionNames = undefined;
     }
 
     /** Reads the built-ins and all top-level declarations; returns how many were found. */
@@ -472,9 +475,10 @@ export class TypeSystem {
                 unify(receiver, actual, params, bindings);
             }
             const s = bindOwnTypeParams(m, bindings);
-            const key = memberKey(s);
-            if (seen.has(key)) { return; }
             const isVisible = visiblePackages.has(m.pkg) || imported.has(`${m.pkg.replace(/\//g, ".")}.${m.name}`);
+            // The same signature in two packages that both need an import: the user chooses which one to import.
+            const key = isVisible ? memberKey(s) : `${memberKey(s)}@${m.pkg}`;
+            if (seen.has(key)) { return; }
             if (!isVisible && receiver.param) { return; }
             seen.add(key);
             out.push({ ...s, inherited: false, extension: true, importName: isVisible ? undefined : `${m.pkg.replace(/\//g, ".")}.${m.name}` });
@@ -501,6 +505,45 @@ export class TypeSystem {
             }
         }
         return out;
+    }
+
+    /** Top-level functions and properties called `name`, and whether the file sees each without an import. */
+    topLevelNamed(name: string, file: FileContext): Array<{ member: PackageMember; visible: boolean }> {
+        return (this.decls().topLevel.get(name) ?? []).map(member => ({ member, visible: !this.needsImport(member, file) }));
+    }
+
+    /** Extension functions and properties called `name` that the file can only use after an import. */
+    importableExtensions(name: string, file: FileContext): PackageMember[] {
+        if (!this.extensionNames) {
+            this.extensionNames = new Map();
+            for (const list of this.decls().extensions.values()) {
+                for (const m of list) {
+                    const same = this.extensionNames.get(m.name);
+                    if (same) { same.push(m); } else { this.extensionNames.set(m.name, [m]); }
+                }
+            }
+        }
+        return (this.extensionNames.get(name) ?? []).filter(m => this.needsImport(m, file));
+    }
+
+    private needsImport(m: PackageMember, file: FileContext): boolean {
+        if (m.pkg === file.packageName.replace(/\./g, "/") || KOTLIN_DEFAULT_PACKAGES.includes(m.pkg)) { return false; }
+        const dotted = m.pkg.replace(/\//g, ".");
+        return !file.imports.some(i => i.star ? i.name === dotted : i.name === `${dotted}.${m.name}`);
+    }
+
+    /** Dotted names of the classes called `simple` that an import can bring in: project sources first, then the classpath. */
+    importableClasses(simple: string): string[] {
+        const names = new Set<string>();
+        for (const id of this.sources?.classIds() ?? []) {
+            if (id.slice(id.lastIndexOf("/") + 1) === simple) { names.add(id.replace(/\//g, ".")); }
+        }
+        for (const binary of this.index.classesNamed(simple)) {
+            const id = binaryToClassId(binary);
+            // A JDK class that Kotlin maps to a built-in (`java.util.List`) is not imported in Kotlin code.
+            if (!INTERNAL_PACKAGE.test(binary) && kotlinIdOfJava(binary) === id && this.isUsableClass(id)) { names.add(binary.replace(/\//g, ".")); }
+        }
+        return [...names];
     }
 
     /** A class Kotlin code can name: not a file facade (`FooKt`), and public in its Kotlin metadata / class flags. */

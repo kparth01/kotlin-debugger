@@ -2,8 +2,9 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { ClassSource, DirSource, JarSource, JImageSource } from "./archives";
-import { ClassIndex, Entry, EntryKind, parseFileContext, qualifierAt } from "./classIndex";
+import { ClassIndex, Entry, EntryKind, FileContext, INTERNAL_PACKAGE, parseFileContext, qualifierAt } from "./classIndex";
 import { findBuildRoot, findJdkClasses, ProjectClasspath, resolveClasspath } from "./classpath";
+import { Analysis, registerImportActions } from "./importActions";
 import { importPlanner, importTextEdit } from "./importEdits";
 import { escapeName, ImportPlanner } from "./imports";
 import { Inference, memberEntries, staticEntries, Value } from "./inference";
@@ -27,9 +28,6 @@ const KINDS: Record<EntryKind, vscode.CompletionItemKind> = {
     namedArgument: vscode.CompletionItemKind.Property,
 };
 
-/** Packages whose classes are not offered for auto-import. */
-const INTERNAL_PACKAGE = /(?:^|\/)(?:internal|impl)(?:\/|$)|^(?:sun|jdk|com\/sun)\//;
-
 const HARD_KEYWORDS = new Set([
     "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if", "in", "interface", "is", "null",
     "object", "package", "return", "super", "this", "throw", "true", "try", "typealias", "typeof", "val", "var", "when", "while",
@@ -37,10 +35,15 @@ const HARD_KEYWORDS = new Set([
 
 export function registerCompletion(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
     const provider = new ClassMemberCompletionProvider(output);
+    const kotlinFiles: vscode.DocumentSelector = [
+        { language: "kotlin", scheme: "file" },
+        { language: "kotlin", scheme: "untitled" },
+    ];
+    const importActions = registerImportActions(context, kotlinFiles, provider, output);
     let timer: NodeJS.Timeout | undefined;
     const invalidate = () => {
         clearTimeout(timer);
-        timer = setTimeout(() => provider.invalidate(), 2000);
+        timer = setTimeout(() => { provider.invalidate(); importActions.refreshAll(); }, 2000);
     };
     const watchers = [
         vscode.workspace.createFileSystemWatcher("**/{pom.xml,build.gradle,build.gradle.kts,settings.gradle,settings.gradle.kts,libs.versions.toml}"),
@@ -52,14 +55,16 @@ export function registerCompletion(context: vscode.ExtensionContext, output: vsc
         w.onDidDelete(invalidate);
     }
     const sources = vscode.workspace.createFileSystemWatcher("**/*.kt");
-    sources.onDidCreate(uri => provider.sourceChanged(uri));
-    sources.onDidChange(uri => provider.sourceChanged(uri));
-    sources.onDidDelete(uri => provider.sourceChanged(uri, true));
-    watchers.push(sources);
-    const kotlinFiles: vscode.DocumentSelector = [
-        { language: "kotlin", scheme: "file" },
-        { language: "kotlin", scheme: "untitled" },
-    ];
+    const sourceChanged = (uri: vscode.Uri, deleted = false) => { provider.sourceChanged(uri, deleted); importActions.refreshAll(); };
+    sources.onDidCreate(uri => sourceChanged(uri));
+    sources.onDidChange(uri => sourceChanged(uri));
+    sources.onDidDelete(uri => sourceChanged(uri, true));
+    // A deleted folder is reported once, without events for the `.kt` files inside it.
+    const folders = vscode.workspace.createFileSystemWatcher("**/*", true, true, false);
+    folders.onDidDelete(uri => {
+        if (!path.extname(uri.fsPath) && provider.folderDeleted(uri)) { importActions.refreshAll(); }
+    });
+    watchers.push(sources, folders);
     context.subscriptions.push(
         ...watchers,
         { dispose: () => clearTimeout(timer) },
@@ -67,7 +72,7 @@ export function registerCompletion(context: vscode.ExtensionContext, output: vsc
         vscode.languages.registerSignatureHelpProvider(kotlinFiles, provider, { triggerCharacters: ["(", ","], retriggerCharacters: [","] }),
         vscode.workspace.onDidOpenTextDocument(doc => provider.warmUp(doc)),
         vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration("kotlinDebugger")) { provider.invalidate(); }
+            if (e.affectsConfiguration("kotlinDebugger")) { provider.invalidate(); importActions.refreshAll(); }
         }),
     );
     vscode.workspace.textDocuments.forEach(doc => provider.warmUp(doc));
@@ -103,6 +108,35 @@ class ClassMemberCompletionProvider implements vscode.CompletionItemProvider, vs
                 if (this.projectSources.get(index)?.set(uri.fsPath, text)) { this.typeSystems.get(index)?.invalidate(); }
             }, () => undefined);
         }
+    }
+
+    /** A folder was deleted: its Kotlin files leave the indexes that are already built. True when any did. */
+    folderDeleted(uri: vscode.Uri): boolean {
+        let changed = false;
+        for (const [root, building] of this.indexes) {
+            if (!root || !`${uri.fsPath}${path.sep}`.startsWith(root + path.sep)) { continue; }
+            changed = true;
+            building.then(index => {
+                if (this.projectSources.get(index)?.removeUnder(uri.fsPath)) { this.typeSystems.get(index)?.invalidate(); }
+            }, () => undefined);
+        }
+        return changed;
+    }
+
+    /** The index, type system and parsed imports for the current text of `doc`; `undefined` when completion is off. */
+    async analyze(doc: vscode.TextDocument): Promise<Analysis | undefined> {
+        if (!enabled()) { return undefined; }
+        let index: ClassIndex;
+        try {
+            index = await this.indexFor(doc.uri);
+        } catch {
+            return undefined;
+        }
+        const text = doc.getText();
+        const file: FileContext = parseFileContext(text);
+        const types = this.typeSystem(index);
+        if (doc.uri.scheme === "file" && this.projectSources.get(index)?.set(doc.uri.fsPath, text)) { types.invalidate(); }
+        return { index, types, file, text };
     }
 
     warmUp(doc: vscode.TextDocument): void {

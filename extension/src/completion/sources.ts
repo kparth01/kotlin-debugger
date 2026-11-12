@@ -59,6 +59,16 @@ export class ProjectSources implements SourceProvider {
         return true;
     }
 
+    /** Removes the files below a deleted directory; true when something changed. */
+    removeUnder(dir: string): boolean {
+        const prefix = dir.endsWith(path.sep) ? dir : dir + path.sep;
+        let changed = false;
+        for (const file of [...this.texts.keys()]) {
+            if (file.startsWith(prefix)) { changed = this.set(file, undefined) || changed; }
+        }
+        return changed;
+    }
+
     private file(file: string): ParsedFile {
         let parsed = this.parsed.get(file);
         if (!parsed) {

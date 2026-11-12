@@ -62,6 +62,8 @@ const KOTLIN_DEFAULT_PACKAGES = [
 /** Kotlin built-in types whose companion objects are implemented by `kotlin.jvm.internal.<Name>CompanionObject`. */
 const BUILTIN_COMPANIONS = new Set(["Int", "Long", "Short", "Byte", "Char", "Float", "Double", "Boolean", "String", "Enum"]);
 const MAX_UNIMPORTED_CANDIDATES = 8;
+/** Packages whose classes are not offered for import. */
+export const INTERNAL_PACKAGE = /(?:^|\/)(?:internal|impl)(?:\/|$)|^(?:sun|jdk|com\/sun)\//;
 const DESKTOP_PACKAGES = /^(?:java\/awt|javax\/(?:swing|print|sound|imageio|accessibility|management|naming|sql\/rowset)|java\/applet|org\/(?:omg|w3c|xml|ietf))\//;
 
 export class ClassIndex {
@@ -132,6 +134,12 @@ export class ClassIndex {
         return scored.sort((a, b) => a[0] - b[0] || a[1].localeCompare(b[1])).slice(0, limit).map(s => s[1]);
     }
 
+    /** Top-level classes with this simple name: project and library classes first, then the JDK, desktop and internal packages last. */
+    classesNamed(simple: string): string[] {
+        const rank = (n: string) => INTERNAL_PACKAGE.test(n) ? 3 : DESKTOP_PACKAGES.test(n) ? 2 : this.sources.get(n) instanceof JImageSource ? 1 : 0;
+        return [...(this.bySimpleName.get(simple) ?? [])].sort((a, b) => rank(a) - rank(b));
+    }
+
     /** Simple names of the top-level classes in a package (`java/lang`). */
     packageClasses(pkg: string): string[] {
         return [...(this.packages.get(pkg)?.classes ?? [])];
@@ -162,7 +170,7 @@ export class ClassIndex {
         if (qualified) { return [{ name: qualified }]; }
         if (this.packages.has(qualifier.join("/"))) { return []; }
         const candidates: Array<{ name: string; importName?: string }> = [];
-        for (const name of (this.bySimpleName.get(first) ?? []).slice(0, MAX_UNIMPORTED_CANDIDATES)) {
+        for (const name of this.classesNamed(first).slice(0, MAX_UNIMPORTED_CANDIDATES)) {
             const nested = this.nestedClass(name, rest);
             if (nested) { candidates.push({ name: nested, importName: name.replace(/\//g, ".") }); }
         }

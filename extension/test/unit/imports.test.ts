@@ -1,5 +1,7 @@
 import * as assert from "assert";
-import { ASCII_LAYOUT, compareImports, escapeName, importPlan, ImportPlanner, INTELLIJ_LAYOUT, parseHeader } from "../../src/completion/imports";
+import {
+    ASCII_LAYOUT, compareImports, escapeName, importPlan, ImportPlanner, INTELLIJ_LAYOUT, parseHeader, withImports,
+} from "../../src/completion/imports";
 
 /** Applies the planned insertion to `text`, as the editor would. */
 function withImport(text: string, fqName: string, layout?: string): string {
@@ -180,6 +182,15 @@ suite("imports: insertion", () => {
     test("keyword segments are escaped", () => {
         assert.strictEqual(escapeName("org.mockito.Mockito.when"), "org.mockito.Mockito.`when`");
         assert.strictEqual(importPlan("class X", "a.fun.B")!.newText, "import a.`fun`.B\n\n");
+    });
+
+    test("several imports at once: each in its place, already imported names are skipped", () => {
+        const text = lines("package p", "", "import com.a.B", "import java.io.File", "", "class X", "");
+        assert.strictEqual(
+            withImports(text, ["java.util.UUID", "com.a.A", "kotlinx.coroutines.delay", "com.a.B", "java.io.Closeable", "com.a.A"]),
+            lines("package p", "", "import com.a.A", "import com.a.B", "import kotlinx.coroutines.delay", "import java.io.Closeable",
+                "import java.io.File", "import java.util.UUID", "", "class X", ""));
+        assert.strictEqual(withImports("class X\n", ["b.B", "a.A"]), "import a.A\nimport b.B\n\nclass X\n");
     });
 
     test("explicit imports bind simple names (clash detection)", () => {

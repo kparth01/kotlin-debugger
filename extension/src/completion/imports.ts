@@ -219,6 +219,19 @@ export function importPlan(text: string, fqName: string, layout: string = INTELL
     return new ImportPlanner(text, layout).plan(fqName);
 }
 
+/** `text` with an import added, each in its sorted place, for every name that is not imported yet. */
+export function withImports(text: string, fqNames: string[], layout: string = INTELLIJ_LAYOUT): string {
+    for (const name of fqNames) {
+        const insertion = importPlan(text, name, layout);
+        if (!insertion) { continue; }
+        const lines = text.split("\n");
+        let offset = insertion.character;
+        for (let i = 0; i < insertion.line; i++) { offset += lines[i].length + 1; }
+        text = text.slice(0, offset) + insertion.newText + text.slice(offset);
+    }
+    return text;
+}
+
 const KEYWORDS = new Set([
     "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if", "in", "interface", "is", "null",
     "object", "package", "return", "super", "this", "throw", "true", "try", "typealias", "typeof", "val", "var", "when", "while",

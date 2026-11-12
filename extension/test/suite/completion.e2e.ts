@@ -218,6 +218,159 @@ suite("Completion: class members and packages", function () {
         assert.ok(lists.includes("List") && !lists.includes("java.util.List"), lists.join(", "));
     });
 
+    test("the same extension in two packages: both are offered, each with its own import", async () => {
+        const extra = path.join(workspace, "src/main/kotlin/com/example/demo/extra/Extra.kt");
+        await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(extra)));
+        await vscode.workspace.fs.writeFile(vscode.Uri.file(extra), Buffer.from(
+            "package com.example.demo.extra\n\nimport com.example.demo.domain.Order\n\nval Order.itemCount: Int get() = 0\n"));
+        // the file reaches (and leaves) the index through the file watcher
+        const itemCountImports = async (expected: number) => {
+            let imports: string[] = [];
+            for (let i = 0; i < 40 && imports.length !== expected; i++) {
+                await new Promise(resolve => setTimeout(resolve, 250));
+                imports = (await completeAfter(controller, create, ["order."]))
+                    .filter(item => name(item) === "itemCount").map(item => item.additionalTextEdits?.[0].newText ?? "").sort();
+            }
+            return imports;
+        };
+        try {
+            assert.deepStrictEqual(await itemCountImports(2), ["import com.example.demo.domain.itemCount\n", "import com.example.demo.extra.itemCount\n"]);
+        } finally {
+            await vscode.workspace.fs.delete(vscode.Uri.file(path.dirname(extra)), { recursive: true });
+        }
+        // deleting the folder is one event for the folder, none for the file in it
+        assert.deepStrictEqual(await itemCountImports(1), ["import com.example.demo.domain.itemCount\n"], "the files of a deleted folder are forgotten");
+    });
+
+    suite("imports for typed or pasted code", () => {
+        const typed = [
+            "val id = UUID.randomUUID()",
+            "val day = Date()",
+            "val n = runBlocking { order.itemCount }",
+            "val text = \"UUID in a string\" // and Date in a comment",
+        ];
+
+        /** Opens the controller with `lines` inserted (unsaved) below the create marker. */
+        async function withLines(lines: string[]): Promise<{ doc: vscode.TextDocument; editor: vscode.TextEditor; first: number }> {
+            const doc = await vscode.workspace.openTextDocument(controller);
+            const editor = await vscode.window.showTextDocument(doc);
+            const marker = doc.getText().split("\n").findIndex(l => l.includes(create));
+            await editor.edit(e => e.insert(doc.lineAt(marker).range.end, lines.map(l => `\n        ${l}`).join("")));
+            return { doc, editor, first: marker + 1 };
+        }
+
+        const rangeOf = (doc: vscode.TextDocument, line: number, word: string) => {
+            const at = doc.lineAt(line).text.indexOf(word);
+            assert.ok(at >= 0, word);
+            return new vscode.Range(line, at, line, at + word.length);
+        };
+
+        const importsAt = async (doc: vscode.TextDocument, range: vscode.Range) =>
+            (await vscode.commands.executeCommand<vscode.CodeAction[]>("vscode.executeCodeActionProvider", doc.uri, range))
+                .filter(a => a.title.startsWith("Import "));
+
+        teardown(() => vscode.commands.executeCommand("workbench.action.files.revert"));
+
+        test("quick fix: one Import action per candidate, the only candidate is preferred", async () => {
+            const { doc, first } = await withLines(typed);
+            const uuid = await importsAt(doc, rangeOf(doc, first, "UUID"));
+            assert.deepStrictEqual(uuid.map(a => a.title), ["Import java.util.UUID"]);
+            assert.strictEqual(uuid[0].isPreferred, true);
+            const date = await importsAt(doc, rangeOf(doc, first + 1, "Date"));
+            assert.deepStrictEqual(date.map(a => a.title).sort(), ["Import java.sql.Date", "Import java.util.Date"]);
+            assert.ok(date.every(a => !a.isPreferred), "several candidates: the user chooses");
+            const call = await importsAt(doc, rangeOf(doc, first + 2, "runBlocking"));
+            assert.deepStrictEqual(call.map(a => a.title), ["Import kotlinx.coroutines.runBlocking"]);
+            const extension = await importsAt(doc, rangeOf(doc, first + 2, "itemCount"));
+            assert.deepStrictEqual(extension.map(a => a.title), ["Import com.example.demo.domain.itemCount"]);
+            // names that are fine: imported classes, locals, members, strings and comments
+            for (const [line, word] of [[first, "randomUUID"], [first + 2, "order"], [first + 3, "UUID"], [first + 3, "Date"]] as Array<[number, string]>) {
+                assert.deepStrictEqual((await importsAt(doc, rangeOf(doc, line, word))).map(a => a.title), [], word);
+            }
+        });
+
+        test("the quick fix puts the import in its sorted place", async () => {
+            const { doc, first } = await withLines(typed);
+            const [action] = await importsAt(doc, rangeOf(doc, first, "UUID"));
+            await vscode.workspace.applyEdit(action.edit!);
+            const lines = doc.getText().split("\n");
+            assert.strictEqual(lines[lines.indexOf("import java.math.BigDecimal") + 1], "import java.util.UUID");
+            assert.deepStrictEqual(await importsAt(doc, rangeOf(doc, first + 1, "UUID")), [], "imported now");
+        });
+
+        test("each name that needs an import is marked in the editor", async () => {
+            const { doc } = await withLines(typed);
+            let marked: string[] = [];
+            for (let i = 0; i < 40 && marked.length < 4; i++) {
+                await new Promise(resolve => setTimeout(resolve, 250));
+                marked = vscode.languages.getDiagnostics(doc.uri).filter(d => d.code === "missing-import").map(d => doc.getText(d.range)).sort();
+            }
+            assert.deepStrictEqual(marked, ["Date", "UUID", "itemCount", "runBlocking"]);
+        });
+
+        test("Add Missing Imports adds every import that has one candidate", async () => {
+            const { doc } = await withLines(typed.filter(l => !l.includes("Date()")));
+            await vscode.commands.executeCommand("kotlinDebugger.importMissing");
+            const imports = doc.getText().split("\n").filter(l => l.startsWith("import "));
+            const sample = (statement: string) => imports.indexOf(statement);
+            assert.ok(sample("import java.util.UUID") > sample("import java.math.BigDecimal"), imports.join("\n"));
+            assert.strictEqual(sample("import com.example.demo.domain.itemCount"), sample("import com.example.demo.domain.OrderRequest") + 1);
+            assert.strictEqual(sample("import kotlinx.coroutines.runBlocking"), sample("import com.example.demo.service.OrderService") + 1);
+        });
+
+        test("source.addMissingImports (usable on save) skips names with several candidates", async () => {
+            const { doc } = await withLines(typed);
+            const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+                "vscode.executeCodeActionProvider", doc.uri, new vscode.Range(0, 0, 0, 0), "source.addMissingImports");
+            const action = actions.find(a => a.title === "Add missing imports");
+            assert.ok(action?.edit, actions.map(a => a.title).join(", "));
+            await vscode.workspace.applyEdit(action.edit);
+            const text = doc.getText();
+            assert.ok(text.includes("import java.util.UUID\n") && text.includes("import kotlinx.coroutines.runBlocking\n"), "unambiguous imports");
+            assert.ok(!/^import java\.(util|sql)\.Date$/m.test(text), "Date has two candidates");
+        });
+
+        test("addUnambiguousOnTheFly: the import appears once the cursor has left the line; an undo is respected", async () => {
+            const setting = vscode.workspace.getConfiguration("kotlinDebugger");
+            await setting.update("imports.addUnambiguousOnTheFly", true, vscode.ConfigurationTarget.Global);
+            try {
+                const { doc, editor, first } = await withLines(typed);
+                const hasImport = (statement: string) => doc.getText().split("\n").includes(statement);
+                const settle = async (done: () => boolean) => {
+                    for (let i = 0; i < 40 && !done(); i++) { await new Promise(resolve => setTimeout(resolve, 250)); }
+                };
+                // the cursor stays on the UUID line: runBlocking and itemCount are imported, UUID waits
+                editor.selection = new vscode.Selection(first, 8, first, 8);
+                await settle(() => hasImport("import kotlinx.coroutines.runBlocking"));
+                assert.ok(hasImport("import kotlinx.coroutines.runBlocking") && hasImport("import com.example.demo.domain.itemCount"));
+                assert.ok(!hasImport("import java.util.UUID"), "the line being edited is left alone");
+                const last = doc.lineCount - 1;
+                editor.selection = new vscode.Selection(last, 0, last, 0);
+                await settle(() => hasImport("import java.util.UUID"));
+                assert.ok(hasImport("import java.util.UUID"));
+                assert.ok(!doc.getText().includes("import java.util.Date") && !doc.getText().includes("import java.sql.Date"), "two candidates: never automatic");
+                // undo the UUID import: it is not added a second time
+                await vscode.commands.executeCommand("undo");
+                assert.ok(!hasImport("import java.util.UUID"), "undone");
+                editor.selection = new vscode.Selection(last - 1, 0, last - 1, 0);
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                assert.ok(!hasImport("import java.util.UUID"), "an undone import stays undone");
+            } finally {
+                await setting.update("imports.addUnambiguousOnTheFly", undefined, vscode.ConfigurationTarget.Global);
+            }
+        });
+
+        test("code that compiles has nothing to import", async () => {
+            const files = await vscode.workspace.findFiles("src/**/*.kt");
+            assert.ok(files.length >= 8, `${files.length} Kotlin files`);
+            for (const file of files) {
+                const doc = await vscode.workspace.openTextDocument(file);
+                const all = new vscode.Range(0, 0, doc.lineCount, 0);
+                assert.deepStrictEqual((await importsAt(doc, all)).map(a => a.title), [], path.basename(file.fsPath));
+            }
+        });
+    });
+
     test("package path lists subpackages and classes", async () => {
         const spring = names(await complete(controller, "import org.springframework."));
         assert.ok(spring.has("web") && spring.has("http") && spring.has("boot"), [...spring].join(", "));

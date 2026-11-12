@@ -10,6 +10,7 @@ Debug Kotlin/JVM and Spring Boot applications in VS Code. Attach over JDWP, set 
 - Kotlin source breakpoints, including inline functions and coroutines.
 - Kotlin-aware stepping, call stacks, variables, and expression evaluation.
 - Kotlin completion and parameter hints.
+- Imports like IntelliJ IDEA: added in sorted order when you accept a completion, and offered as an **Import …** quick fix (`Alt+Enter`) for typed or pasted code, with one entry per candidate when a name exists in several packages.
 
 ## Install
 

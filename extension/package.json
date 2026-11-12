@@ -62,6 +62,23 @@
         "command": "kotlinDebugger.showLog",
         "title": "Show Debug Adapter Log",
         "category": "Kotlin Debugger"
+      },
+      {
+        "command": "kotlinDebugger.importMissing",
+        "title": "Add Missing Imports",
+        "category": "Kotlin"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        { "command": "kotlinDebugger.importMissing", "when": "editorLangId == kotlin" }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "editor.action.quickFix",
+        "key": "alt+enter",
+        "when": "editorTextFocus && editorLangId == kotlin && !findWidgetVisible && !suggestWidgetVisible"
       }
     ],
     "configuration": {
@@ -109,6 +126,17 @@
           ],
           "default": "intellij",
           "markdownDescription": "Where a completion puts a new `import`. An `ij_kotlin_imports_layout` in the project's `.editorconfig` takes precedence."
+        },
+        "kotlinDebugger.imports.highlightMissing": {
+          "type": "string",
+          "enum": ["hint", "information", "warning", "off"],
+          "default": "hint",
+          "markdownDescription": "How a name that needs an import is marked in the editor. The **Import …** quick fix (`Alt+Enter` or the lightbulb) is offered at every level, including `off`. Only names with at least one import candidate are marked."
+        },
+        "kotlinDebugger.imports.addUnambiguousOnTheFly": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Add an import by itself when a typed or pasted name has exactly one candidate, once the cursor has left the line. Names with several candidates always wait for your choice."
         }
       }
     },

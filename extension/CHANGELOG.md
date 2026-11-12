@@ -4,6 +4,14 @@
 
 - A completion's new `import` goes to its sorted place instead of below the last import. The order is IntelliJ IDEA's default: other imports, then `java`, `javax`, `kotlin`, then alias imports, each group in ASCII order. `kotlinDebugger.imports.layout` switches to one ASCII-ordered block, and an `ij_kotlin_imports_layout` in `.editorconfig` takes precedence over the setting.
 - A class whose simple name already means another class in the file is now offered too. It is inserted fully qualified and no import is added, so the existing name keeps its meaning.
+- Imports for code that was typed or pasted without a completion:
+  - A name that needs an import is marked in the editor (`kotlinDebugger.imports.highlightMissing`: `hint` by default, `information`, `warning` or `off`). Only names with at least one import candidate are marked: classes, calls of top-level functions, and extension functions or properties on the inferred receiver type.
+  - `Alt+Enter` (or the lightbulb, `Cmd+.` / `Ctrl+.`) offers one **Import …** quick fix per candidate, so you choose when a name exists in several packages.
+  - **Kotlin: Add Missing Imports** adds every import that has one candidate and asks for the others. The same without questions is available as the `source.addMissingImports` code action, for example in `editor.codeActionsOnSave`.
+  - `kotlinDebugger.imports.addUnambiguousOnTheFly` (off by default) adds an import by itself when the name has exactly one candidate and the cursor has left the line.
+- The same extension function or property in two packages is listed once per package in the completion list, each with its own import.
+- `ClassName.` on a class that is not imported prefers project and library classes over JDK classes with the same name.
+- Kotlin files of a deleted folder no longer stay in the completion index.
 - The first import of a file is placed below the `package` directive and `@file:` annotations with blank lines around it; a file without a final line break no longer gets the import glued to its last line.
 
 ## 2.1.1
