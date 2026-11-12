@@ -1,7 +1,9 @@
+import * as fs from "fs";
 import * as net from "net";
+import * as path from "path";
 import * as vscode from "vscode";
 import { resolveClasspath } from "../completion/classpath";
-import { debugSetup, findMaven, mavenInvocation, MavenOptions, splitGoals } from "./invocation";
+import { debugSetup, findMaven, Invocation, mavenInvocation, MavenOptions, splitGoals } from "./invocation";
 import { jdkLabel, requiredJavaVersion } from "./jdks";
 import { coordinates, LIFECYCLE_PHASES, PomPlugin, PomProject, projectPlugins, readProject, settingsProfiles } from "./pomModel";
 import { ProjectJdk } from "./projectJdk";
@@ -13,6 +15,13 @@ export interface MavenApi {
     plugins(pomFile: string): PomPlugin[];
     /** Runs goals with the Project JDK and resolves with Maven's exit code (`undefined` when it was not started). */
     run(pomFile: string, goals: string[], debug?: boolean): Promise<number | undefined>;
+    /** The Maven project a file belongs to: the nearest `pom.xml` at or above its directory, inside the workspace. */
+    projectOf(file: string): PomProject | undefined;
+    /**
+     * The process a run of `goals` would start, without starting it and without asking anything: `undefined`
+     * when no Project JDK is chosen for the folder or no Maven is found.
+     */
+    invocation(pomFile: string, goals: string[]): Invocation | undefined;
 }
 
 type Group = "lifecycle" | "plugins" | "dependencies" | "profiles" | "runs";
@@ -74,6 +83,17 @@ export function registerMaven(context: vscode.ExtensionContext, output: vscode.O
             const project = readProject(pomFile);
             const execution = project && await maven.start(project, goals, !!debug);
             return execution ? maven.exitCode(execution) : undefined;
+        },
+        projectOf: file => {
+            const stop = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(file))?.uri.fsPath;
+            for (let dir = path.dirname(file); ; dir = path.dirname(dir)) {
+                if (fs.existsSync(path.join(dir, "pom.xml"))) { return readProject(path.join(dir, "pom.xml")); }
+                if (dir === stop || path.dirname(dir) === dir) { return undefined; }
+            }
+        },
+        invocation: (pomFile, goals) => {
+            const project = readProject(pomFile);
+            return project && maven.invocation(project, goals);
         },
     };
 }
@@ -435,6 +455,15 @@ class MavenView implements vscode.TreeDataProvider<Node>, vscode.Disposable {
         const execution = await vscode.tasks.executeTask(task);
         if (debug) { this.attach(execution, `Debug: mvn ${name}`, port, folder, project); }
         return execution;
+    }
+
+    /** The command line of a run with the chosen Project JDK; `undefined` when there is no JDK or no Maven (nothing is asked). */
+    invocation(project: PomProject, goals: string[]): Invocation | undefined {
+        const pom = vscode.Uri.file(project.file);
+        const jdk = this.jdks.current(pom);
+        const configured = vscode.workspace.getConfiguration("kotlinDebugger", pom).get<string>("maven.executable") || undefined;
+        const maven = jdk && findMaven(project.dir, vscode.workspace.getWorkspaceFolder(pom)?.uri.fsPath, configured, this.context.asAbsolutePath("maven"));
+        return jdk && maven ? mavenInvocation(maven, goals, project.dir, jdk.home, this.options(project)) : undefined;
     }
 
     /** Maven's exit code once the task has ended; `undefined` when it was terminated. */

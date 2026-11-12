@@ -2,6 +2,7 @@ import * as assert from "assert";
 import {
     ASCII_LAYOUT, compareImports, escapeName, importPlan, ImportPlanner, INTELLIJ_LAYOUT, parseHeader, withImports,
 } from "../../src/completion/imports";
+import { organizeImports } from "../../src/completion/organizeImports";
 
 /** Applies the planned insertion to `text`, as the editor would. */
 function withImport(text: string, fqName: string, layout?: string): string {
@@ -199,5 +200,49 @@ suite("imports: insertion", () => {
         assert.strictEqual(planner.explicitlyImported("Other"), "a.b.Thing");
         assert.strictEqual(planner.explicitlyImported("Thing"), undefined);
         assert.strictEqual(planner.explicitlyImported("c"), undefined);
+    });
+});
+
+suite("imports: organize", () => {
+    const apply = (text: string, layout?: string) => {
+        const result = organizeImports(text, layout);
+        if (!result) { return text; }
+        const all = text.split("\n");
+        return [...all.slice(0, result.startLine), ...(result.newText ? [result.newText] : []), ...all.slice(result.endLine + 1)].join("\n");
+    };
+
+    test("sorts by the layout, drops duplicates and unused imports", () => {
+        const text = lines(
+            "package p", "",
+            "import java.util.UUID", "import org.b.Used", "import com.a.Unused", "import org.b.Used", "import kotlin.math.max",
+            "import com.a.Thing as Other", "import com.c.*", "import com.a.ext", "",
+            "fun f(u: Used): UUID = Other().ext(max(1, 2))", "");
+        const result = organizeImports(text)!;
+        assert.deepStrictEqual(result.removed, ["com.a.Unused"]);
+        assert.strictEqual(apply(text), lines(
+            "package p", "",
+            "import com.a.ext", "import com.c.*", "import org.b.Used", "import java.util.UUID", "import kotlin.math.max", "import com.a.Thing as Other", "",
+            "fun f(u: Used): UUID = Other().ext(max(1, 2))", ""));
+    });
+
+    test("kept although the name is not written: operators, delegates, destructuring, star imports, KDoc links", () => {
+        const text = lines(
+            "import a.b.component1", "import a.b.getValue", "import a.b.plus", "import a.c.*", "import a.d.Linked", "",
+            "/** See [Linked]. */", "val x by lazy { 1 }", "");
+        assert.strictEqual(organizeImports(text), undefined, "nothing to change");
+    });
+
+    test("an alias is used by its alias only", () => {
+        const text = lines("import a.Thing as Other", "import b.Other as Thing", "", "val x = Other()", "");
+        assert.deepStrictEqual(organizeImports(text)?.removed, ["b.Other as Thing"]);
+    });
+
+    test("comments inside the import block are left to the user", () => {
+        assert.strictEqual(organizeImports(lines("import b.B", "// keep", "import a.A", "", "val x = A() to B()")), undefined);
+    });
+
+    test("already organized, or no imports", () => {
+        assert.strictEqual(organizeImports(lines("import a.A", "import b.B", "", "val x = A() to B()")), undefined);
+        assert.strictEqual(organizeImports("class X"), undefined);
     });
 });

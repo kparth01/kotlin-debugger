@@ -2,7 +2,7 @@
   "name": "kotlin-debugger",
   "displayName": "Kotlin Debugger (JVM)",
   "description": "Debug Kotlin/JVM and Spring Boot apps from VS Code: attach to any JVM over JDWP, Kotlin source breakpoints (incl. inline functions, lambdas, coroutines), stepping, variables and Kotlin expression evaluation. With Kotlin completion, imports and a Maven view that builds with the JDK you choose.",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "publisher": "kparth01",
   "license": "MIT",
   "icon": "resources/logo128.png",
@@ -71,6 +71,9 @@
         "title": "Add Missing Imports",
         "category": "Kotlin"
       },
+      { "command": "kotlinDebugger.organizeImports", "title": "Organize Imports", "category": "Kotlin" },
+      { "command": "kotlinDebugger.runMain", "title": "Run Main Function", "category": "Kotlin", "icon": "$(play)" },
+      { "command": "kotlinDebugger.debugMain", "title": "Debug Main Function", "category": "Kotlin", "icon": "$(debug-alt)" },
       { "command": "kotlinDebugger.selectProjectJdk", "title": "Select Project JDK…", "category": "Kotlin", "icon": "$(coffee)" },
       { "command": "kotlinDebugger.maven.refresh", "title": "Reload Maven Projects", "category": "Maven", "icon": "$(refresh)" },
       { "command": "kotlinDebugger.maven.execute", "title": "Execute Maven Goal…", "category": "Maven", "icon": "$(terminal)" },
@@ -95,6 +98,9 @@
     "menus": {
       "commandPalette": [
         { "command": "kotlinDebugger.importMissing", "when": "editorLangId == kotlin" },
+        { "command": "kotlinDebugger.organizeImports", "when": "editorLangId == kotlin" },
+        { "command": "kotlinDebugger.runMain", "when": "false" },
+        { "command": "kotlinDebugger.debugMain", "when": "false" },
         { "command": "kotlinDebugger.maven.runGoal", "when": "false" },
         { "command": "kotlinDebugger.maven.debugGoal", "when": "false" },
         { "command": "kotlinDebugger.maven.removeRun", "when": "false" },
@@ -225,6 +231,39 @@
           "default": [],
           "scope": "resource",
           "markdownDescription": "Arguments added to every Maven run from the Maven view, for example `[\"-T\", \"1C\"]`."
+        },
+        "kotlinDebugger.maven.compileOnSave": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "After a Kotlin or Java file of a Maven project is saved, run `mvn -q compile` in the background with the Project JDK and show the compiler's errors and warnings as problems."
+        },
+        "kotlinDebugger.run.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show **Run | Debug** above top-level `fun main` functions."
+        },
+        "kotlinDebugger.run.buildBeforeLaunch": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "markdownDescription": "Run `mvn compile` (with the Project JDK) before **Run | Debug** starts a main function of a Maven project."
+        },
+        "kotlinDebugger.testing.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "List the Kotlin tests of Maven projects (`@Test` functions below `src/test`) in the Testing view and the editor gutter, and run or debug them through Maven (`-Dtest=Class#method`) with the Project JDK."
+        },
+        "kotlinDebugger.imports.organize": {
+          "type": "string",
+          "enum": ["auto", "always", "never"],
+          "enumDescriptions": [
+            "Offer Organize Imports (Shift+Alt+O, on save) unless the Kotlin Jump extension, which has its own, is installed.",
+            "Always offer it.",
+            "Never offer it; the command Kotlin: Organize Imports stays available."
+          ],
+          "default": "auto",
+          "markdownDescription": "Whether this extension answers VS Code's **Organize Imports** for Kotlin files: imports are sorted by `kotlinDebugger.imports.layout`, duplicates and unused imports are dropped."
         },
         "kotlinDebugger.completion.enabled": {
           "type": "boolean",

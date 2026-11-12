@@ -14,6 +14,8 @@ Debug Kotlin/JVM and Spring Boot applications in VS Code. Attach over JDWP, set 
 
 - A Maven view: lifecycle phases, plugin goals, profiles and saved runs for every `pom.xml`, run or debugged with the Project JDK you select. Compiler errors land in the Problems panel.
 
+- **Run | Debug** above `fun main`, Kotlin tests in the Testing view (run and debugged through Maven), optional compile on save, and Organize Imports.
+
 ## Install
 
 Install **Kotlin Debugger** from the VS Code Extensions view, or run:

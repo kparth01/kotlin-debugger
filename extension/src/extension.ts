@@ -6,12 +6,15 @@ import { registerCompletion } from "./completion/provider";
 import { findJava } from "./java";
 import { MavenApi, registerMaven } from "./maven/mavenView";
 import { projectJavaExecutable } from "./maven/projectJdk";
+import { registerCompileOnSave } from "./run/compileOnSave";
+import { registerMainLens } from "./run/mainLens";
+import { registerTestExplorer, TestsApi } from "./run/testExplorer";
 
 export const DEBUG_TYPE = "kotlin-jvm";
 
 let output: vscode.OutputChannel;
 
-export function activate(context: vscode.ExtensionContext): { maven: MavenApi } {
+export function activate(context: vscode.ExtensionContext): { maven: MavenApi; tests: TestsApi } {
     output = vscode.window.createOutputChannel("Kotlin Debugger");
     context.subscriptions.push(output);
 
@@ -23,7 +26,10 @@ export function activate(context: vscode.ExtensionContext): { maven: MavenApi } 
         vscode.commands.registerCommand("kotlinDebugger.showLog", () => openAdapterLog()),
     );
     registerCompletion(context, output);
-    return { maven: registerMaven(context, output, DEBUG_TYPE) };
+    const maven = registerMaven(context, output, DEBUG_TYPE);
+    registerMainLens(context, [{ language: "kotlin", scheme: "file" }], maven, DEBUG_TYPE);
+    registerCompileOnSave(context, maven, output);
+    return { maven, tests: registerTestExplorer(context, maven, output) };
 }
 
 export function deactivate(): void { /* adapter processes are owned by VS Code */ }

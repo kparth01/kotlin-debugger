@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.4.0
+
+- **Run | Debug** above every top-level `fun main`. A Maven project is compiled first (`mvn compile` with the Project JDK; `kotlinDebugger.run.buildBeforeLaunch`), then the main class starts through the `kotlin-jvm` launch configuration with the classpath read from the build files. `kotlinDebugger.run.codeLens` hides the lenses.
+- **Kotlin tests of Maven projects in the Testing view and the gutter**: classes with `@Test` functions below `src/test` (JUnit 4/5, kotlin.test, nested classes, backticked names). Run and Debug go through Maven (`-Dtest=Class#method`) with the Project JDK; results, failure messages and the failing line come from the Surefire reports. `kotlinDebugger.testing.enabled` turns it off.
+- **Compile on save** (`kotlinDebugger.maven.compileOnSave`, off by default): saving a Kotlin or Java file of a Maven project runs `mvn -q compile` in the background and shows the compiler's errors and warnings as problems.
+- **Kotlin: Organize Imports** sorts the imports by the import layout and drops duplicates and unused imports. It keeps star imports, operator and delegate functions, and names that only appear in comments (KDoc links). It also answers VS Code's Organize Imports (`Shift+Alt+O`, on save) unless the Kotlin Jump extension is installed, which has its own; `kotlinDebugger.imports.organize` decides.
+
 ## 2.3.0
 
 - **Maven view** in the activity bar, for every `pom.xml` of the workspace (modules hang below their parent):

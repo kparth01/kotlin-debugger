@@ -27,8 +27,9 @@ echo "==> VS Code end-to-end test"
 # When launched from inside VS Code (integrated terminal / extensions), these variables would make
 # the test instance start in Node mode or talk to the parent window.
 "$ROOT/scripts/fetch-maven.sh"
-for suite in springBoot completion maven; do
+for suite in springBoot completion maven run tests; do
   env -u ELECTRON_RUN_AS_NODE -u VSCODE_IPC_HOOK_CLI -u VSCODE_PID -u VSCODE_CWD -u VSCODE_NLS_CONFIG \
       -u VSCODE_HANDLES_UNCAUGHT_ERRORS -u VSCODE_ESM_ENTRYPOINT -u VSCODE_CRASH_REPORTER_PROCESS_TYPE \
-      -u VSCODE_CODE_CACHE_PATH KDA_E2E_SUITE="$suite" node out/test/runE2E.js
+      -u VSCODE_CODE_CACHE_PATH KDA_E2E_SUITE="$suite" KDA_E2E_WORKSPACE="$([[ $suite == tests ]] && echo "$ROOT/adapter" || echo "$ROOT/samples/spring-boot-kotlin-demo")" \
+      node out/test/runE2E.js
 done

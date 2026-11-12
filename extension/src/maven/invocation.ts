@@ -126,3 +126,37 @@ export function debugSetup(goals: string[], port: number, env: NodeJS.ProcessEnv
     }
     return { args: [], env: { MAVEN_OPTS: [env.MAVEN_OPTS, agent].filter(Boolean).join(" ") } };
 }
+
+export interface CompilerMessage {
+    file: string;
+    /** Zero-based. */
+    line: number;
+    column: number;
+    severity: "error" | "warning";
+    message: string;
+}
+
+const COMPILER_OUTPUT = [
+    // Kotlin 2: `[ERROR] file:///abs/File.kt:5:12 Unresolved reference 'x'.`
+    /^\[(ERROR|WARNING)\]\s+file:\/\/(?:\/(?=[A-Za-z]:))?(.+?\.kts?):(\d+):(\d+)\s+(.*)$/,
+    // Kotlin 1: `[ERROR] /abs/File.kt: (5, 12) Unresolved reference: x`
+    /^\[(ERROR|WARNING)\]\s+(.+?\.kts?): \((\d+), (\d+)\)\s+(.*)$/,
+    // javac: `[ERROR] /abs/File.java:[5,12] cannot find symbol`
+    /^\[(ERROR|WARNING)\]\s+(.+?\.java):\[(\d+),(\d+)\]\s+(.*)$/,
+];
+
+/** Kotlin and Java compiler messages in Maven's output (the same lines the task problem matchers pick up), each once. */
+export function compilerMessages(output: string): CompilerMessage[] {
+    const messages = new Map<string, CompilerMessage>();
+    for (const line of output.split(/\r?\n/)) {
+        for (const pattern of COMPILER_OUTPUT) {
+            const m = pattern.exec(line);
+            if (!m) { continue; }
+            let file = m[2];
+            try { file = decodeURIComponent(file); } catch { /* not URL-encoded */ }
+            messages.set(line, { file, line: Number(m[3]) - 1, column: Number(m[4]) - 1, severity: m[1] === "ERROR" ? "error" : "warning", message: m[5] });
+            break;
+        }
+    }
+    return [...messages.values()];
+}

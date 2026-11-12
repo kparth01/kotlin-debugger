@@ -13,7 +13,7 @@ code --install-extension kparth01.kotlin-debugger
 ```
 
 To install from a VSIX file, use **Extensions › … › Install from VSIX…**, or run
-`code --install-extension kotlin-debugger-2.3.0.vsix`.
+`code --install-extension kotlin-debugger-2.4.0.vsix`.
 
 ## Supported versions
 

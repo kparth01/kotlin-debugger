@@ -2,7 +2,7 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { debugSetup, findMaven, mavenInvocation, NO_OPTIONS, splitGoals } from "../../src/maven/invocation";
+import { compilerMessages, debugSetup, findMaven, mavenInvocation, NO_OPTIONS, splitGoals } from "../../src/maven/invocation";
 import { discoverJdks, jdkLabel, majorVersion, readJdk, requiredJavaVersion } from "../../src/maven/jdks";
 import { defaultPrefix, pluginDescriptor, readProject } from "../../src/maven/pomModel";
 
@@ -156,6 +156,26 @@ suite("maven", () => {
             assert.deepStrictEqual(debugSetup(["-o", "test"], 5123, {}).args, [`-Dmaven.surefire.debug=${agent}`, `-Dmaven.failsafe.debug=${agent}`]);
             assert.deepStrictEqual(debugSetup(["exec:java"], 5123, { MAVEN_OPTS: "-Xmx1g" }), { args: [], env: { MAVEN_OPTS: `-Xmx1g ${agent}` } });
         });
+    });
+
+    test("compiler messages in Maven output: Kotlin 2, Kotlin 1 and javac, each once", () => {
+        const output = [
+            "[INFO] --- kotlin:2.4.0:compile (compile) @ demo ---",
+            "[WARNING] file:///work/src/A.kt:4:9 Variable 'unused' is never used.",
+            "[ERROR] file:///work/src/A.kt:5:12 Unresolved reference 'missingName'.",
+            "[ERROR] BUILD FAILURE",
+            "[ERROR] file:///work/src/A.kt:5:12 Unresolved reference 'missingName'.",
+            "[ERROR] /work/src/Old.kt: (7, 3) Unresolved reference: old",
+            "[ERROR] /work/src/B.java:[12,5] cannot find symbol",
+            "[ERROR] file:///C:/work/My%20App/C.kt:1:1 Expecting a top level declaration",
+        ].join("\n");
+        assert.deepStrictEqual(compilerMessages(output), [
+            { file: "/work/src/A.kt", line: 3, column: 8, severity: "warning", message: "Variable 'unused' is never used." },
+            { file: "/work/src/A.kt", line: 4, column: 11, severity: "error", message: "Unresolved reference 'missingName'." },
+            { file: "/work/src/Old.kt", line: 6, column: 2, severity: "error", message: "Unresolved reference: old" },
+            { file: "/work/src/B.java", line: 11, column: 4, severity: "error", message: "cannot find symbol" },
+            { file: "C:/work/My App/C.kt", line: 0, column: 0, severity: "error", message: "Expecting a top level declaration" },
+        ]);
     });
 
     suite("pom.xml", () => {

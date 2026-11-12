@@ -6,6 +6,7 @@ import { ClassIndex, Entry, EntryKind, FileContext, INTERNAL_PACKAGE, parseFileC
 import { findBuildRoot, findJdkClasses, ProjectClasspath, resolveClasspath } from "./classpath";
 import { Analysis, registerImportActions } from "./importActions";
 import { importPlanner, importTextEdit } from "./importEdits";
+import { registerOrganizeImports } from "./organizeAction";
 import { escapeName, ImportPlanner } from "./imports";
 import { Inference, memberEntries, staticEntries, Value } from "./inference";
 import { kotlinSourceFiles, ProjectSources, readSource } from "./sources";
@@ -40,6 +41,7 @@ export function registerCompletion(context: vscode.ExtensionContext, output: vsc
         { language: "kotlin", scheme: "untitled" },
     ];
     const importActions = registerImportActions(context, kotlinFiles, provider, output);
+    registerOrganizeImports(context, kotlinFiles);
     let timer: NodeJS.Timeout | undefined;
     const invalidate = () => {
         clearTimeout(timer);
