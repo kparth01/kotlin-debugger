@@ -1,18 +1,35 @@
+# Dependencies (npm, Gradle)
+node_modules/
+**/node_modules/
+.gradle/
+
 # Build outputs
 target/
+build/
 out/
 dist/
-node_modules/
 *.class
+*.vsix
+*.tsbuildinfo
 extension/server/*.jar
 extension/maven/
-*.vsix
+.vscode-test/
+
+# Local research notes and reports (not part of the extension)
+reports/
+research_notes/
+
+# Machine-specific settings written by the extension (Project JDK) in test projects
+samples/**/.vscode/settings.json
+adapter/.vscode/
 
 # IDE / OS
 .idea/
 *.iml
 .DS_Store
 *.swp
+Icon?
 
-# Logs
+# Environment and logs
+.env
 *.log
