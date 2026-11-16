@@ -1,0 +1,113 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension: Spring Boot sample",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/extension",
+        "${workspaceFolder}/samples/spring-boot-kotlin-demo",
+        "${workspaceFolder}/samples/spring-boot-kotlin-demo/src/main/kotlin/com/example/demo/web/OrderController.kt"
+      ],
+      "outFiles": ["${workspaceFolder}/extension/out/**/*.js"],
+      "preLaunchTask": "extension: compile"
+    },
+    {
+      "name": "Run Extension: Spring Boot sample (watch)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/extension",
+        "${workspaceFolder}/samples/spring-boot-kotlin-demo"
+      ],
+      "outFiles": ["${workspaceFolder}/extension/out/**/*.js"],
+      "preLaunchTask": "extension: watch"
+    },
+    {
+      "name": "Run Extension: Spring Boot sample, other extensions disabled",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/extension",
+        "--disable-extensions",
+        "${workspaceFolder}/samples/spring-boot-kotlin-demo"
+      ],
+      "outFiles": ["${workspaceFolder}/extension/out/**/*.js"],
+      "preLaunchTask": "extension: compile"
+    },
+    {
+      "name": "Run Extension: adapter project (JUnit tests)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/extension",
+        "${workspaceFolder}/adapter"
+      ],
+      "outFiles": ["${workspaceFolder}/extension/out/**/*.js"],
+      "preLaunchTask": "extension: compile"
+    },
+    {
+      "name": "Run Extension: pick a folder…",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/extension",
+        "${input:folder}"
+      ],
+      "outFiles": ["${workspaceFolder}/extension/out/**/*.js"],
+      "preLaunchTask": "extension: compile"
+    },
+    {
+      "name": "Extension unit tests",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/extension",
+      "program": "${workspaceFolder}/extension/node_modules/mocha/bin/mocha.js",
+      "args": ["--ui", "tdd", "--timeout", "0", "out/test/unit/**/*.test.js"],
+      "outFiles": ["${workspaceFolder}/extension/out/**/*.js"],
+      "console": "integratedTerminal",
+      "preLaunchTask": "extension: compile"
+    },
+    {
+      "name": "Extension E2E tests…",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "${input:e2eWorkspace}",
+        "--extensionDevelopmentPath=${workspaceFolder}/extension",
+        "--extensionTestsPath=${workspaceFolder}/extension/out/test/suite/index",
+        "--disable-extensions",
+        "--disable-workspace-trust"
+      ],
+      "env": {
+        "KDA_E2E_SUITE": "${input:e2eSuite}",
+        "KDA_E2E_WORKSPACE": "${input:e2eWorkspace}"
+      },
+      "outFiles": ["${workspaceFolder}/extension/out/**/*.js"],
+      "preLaunchTask": "extension: compile"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "folder",
+      "type": "promptString",
+      "description": "Folder to open in the Extension Development Host",
+      "default": "${workspaceFolder}/samples/spring-boot-kotlin-demo"
+    },
+    {
+      "id": "e2eSuite",
+      "type": "pickString",
+      "description": "End-to-end suite (springBoot, maven and run need JDK 21 in JAVA_HOME; tests runs in the adapter folder)",
+      "options": ["completion", "springBoot", "maven", "run", "tests", "importSweep"],
+      "default": "completion"
+    },
+    {
+      "id": "e2eWorkspace",
+      "type": "pickString",
+      "description": "Folder the suite runs in",
+      "options": ["${workspaceFolder}/samples/spring-boot-kotlin-demo", "${workspaceFolder}/adapter"],
+      "default": "${workspaceFolder}/samples/spring-boot-kotlin-demo"
+    }
+  ]
+}
