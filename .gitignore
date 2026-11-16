@@ -14,6 +14,7 @@ out/
 *.tsbuildinfo
 extension/server/*.jar
 extension/maven/
+extension/README.marketplace.md
 .vscode-test/
 
 # Local research notes and reports (not part of the extension)

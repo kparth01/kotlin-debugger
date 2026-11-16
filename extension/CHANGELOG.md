@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.1
+
+- The Marketplace page shows the full project README: features, quick start, Maven and the Project JDK, requirements.
+
 ## 2.4.0
 
 - **Run | Debug** above every top-level `fun main`. A Maven project is compiled first (`mvn compile` with the Project JDK; `kotlinDebugger.run.buildBeforeLaunch`), then the main class starts through the `kotlin-jvm` launch configuration with the classpath read from the build files. `kotlinDebugger.run.codeLens` hides the lenses.

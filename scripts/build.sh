@@ -42,7 +42,10 @@ npm run --silent compile
 
 echo "==> [4/4] Packaging VSIX"
 mkdir -p "$ROOT/dist"
-npx --no-install vsce package --no-dependencies --allow-missing-repository --skip-license -o "$ROOT/dist/" >/dev/null
+# The Marketplace page shows the project README; vsce only takes a readme inside the extension folder.
+cp "$ROOT/README.md" README.marketplace.md
+trap 'rm -f "$ROOT/extension/README.marketplace.md"' EXIT
+npx --no-install vsce package --readme-path README.marketplace.md --no-dependencies --allow-missing-repository --skip-license -o "$ROOT/dist/" >/dev/null
 VSIX="$(ls -t "$ROOT"/dist/*.vsix | head -1)"
 echo ""
 echo "Built $VSIX ($(du -h "$VSIX" | cut -f1))"
