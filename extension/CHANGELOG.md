@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.2
+
+- README: installing from a VSIX file, and the requirements in full: a full JDK 17+ (not a JRE) for the debugger, found through `kotlinDebugger.javaHome`, `JAVA_HOME` or `java` on `PATH`; Kotlin 2.x.
+
 ## 2.4.1
 
 - The Marketplace page shows the full project README: features, quick start, Maven and the Project JDK, requirements.
