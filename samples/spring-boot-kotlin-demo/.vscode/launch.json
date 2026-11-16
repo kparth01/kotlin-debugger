@@ -2,23 +2,15 @@
   "version": "0.2.0",
   "configurations": [
     {
-      // F5: starts the app under the debugger (build it first: Maven view › compile, or `mvn compile`)
+      // F5 starts the app under the Kotlin debugger. Build it once first (Maven view › compile, or `mvn compile`).
+      // To debug an app that is already running with a debug port instead, add an "attach" configuration
+      // (Add Configuration… › "Kotlin: Attach to JVM / Spring Boot (JDWP)").
       "type": "kotlin-jvm",
       "request": "launch",
       "name": "Launch Spring Boot demo (Kotlin)",
       "mainClass": "com.example.demo.DemoApplicationKt",
       "projectRoot": "${workspaceFolder}",
       "args": ["--server.port=8080"]
-    },
-    {
-      // Only for an app that is already running with a debug port, e.g.
-      //   java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -jar target/spring-boot-kotlin-demo.jar
-      "type": "kotlin-jvm",
-      "request": "attach",
-      "name": "Attach to running Spring Boot demo on port 5005 (Kotlin)",
-      "hostName": "localhost",
-      "port": 5005,
-      "projectRoot": "${workspaceFolder}"
     }
   ]
 }
