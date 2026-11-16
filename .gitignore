@@ -7,7 +7,6 @@ node_modules/
 target/
 build/
 out/
-dist/
 *.class
 *.vsix
 *.tsbuildinfo
