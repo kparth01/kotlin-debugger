@@ -9,6 +9,8 @@ build/
 out/
 *.class
 *.vsix
+# Released packages are committed
+!dist/*.vsix
 *.tsbuildinfo
 extension/server/*.jar
 extension/maven/
