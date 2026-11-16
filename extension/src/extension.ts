@@ -4,12 +4,17 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { registerCompletion } from "./completion/provider";
 import { findJava } from "./java";
+import { MavenApi, registerMaven } from "./maven/mavenView";
+import { projectJavaExecutable } from "./maven/projectJdk";
+import { registerCompileOnSave } from "./run/compileOnSave";
+import { registerMainLens } from "./run/mainLens";
+import { registerTestExplorer, TestsApi } from "./run/testExplorer";
 
 export const DEBUG_TYPE = "kotlin-jvm";
 
 let output: vscode.OutputChannel;
 
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(context: vscode.ExtensionContext): { maven: MavenApi; tests: TestsApi } {
     output = vscode.window.createOutputChannel("Kotlin Debugger");
     context.subscriptions.push(output);
 
@@ -21,6 +26,10 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand("kotlinDebugger.showLog", () => openAdapterLog()),
     );
     registerCompletion(context, output);
+    const maven = registerMaven(context, output, DEBUG_TYPE);
+    registerMainLens(context, [{ language: "kotlin", scheme: "file" }], maven, DEBUG_TYPE);
+    registerCompileOnSave(context, maven, output);
+    return { maven, tests: registerTestExplorer(context, maven, output) };
 }
 
 export function deactivate(): void { /* adapter processes are owned by VS Code */ }
@@ -107,6 +116,8 @@ class ConfigurationProvider implements vscode.DebugConfigurationProvider {
                 return undefined;
             }
             config.cwd = config.cwd ?? config.projectRoot;
+            // The Project JDK (when one is chosen) starts the app, unless the configuration names a java itself.
+            config.javaExec = config.javaExec ?? projectJavaExecutable(folder?.uri);
         }
         if (!config.projectRoot) {
             vscode.window.showWarningMessage("Kotlin debugger: no 'projectRoot' and no workspace folder; breakpoints cannot be mapped to sources.");

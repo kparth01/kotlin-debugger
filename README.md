@@ -10,6 +10,11 @@ Debug Kotlin/JVM and Spring Boot applications in VS Code. Attach over JDWP, set 
 - Kotlin source breakpoints, including inline functions and coroutines.
 - Kotlin-aware stepping, call stacks, variables, and expression evaluation.
 - Kotlin completion and parameter hints.
+- Imports like IntelliJ IDEA: added in sorted order when you accept a completion, and offered as an **Import …** quick fix (`Alt+Enter`) for typed or pasted code, with one entry per candidate when a name exists in several packages.
+
+- A Maven view: lifecycle phases, plugin goals, profiles and saved runs for every `pom.xml`, run or debugged with the Project JDK you select. Compiler errors land in the Problems panel.
+
+- **Run | Debug** above `fun main`, Kotlin tests in the Testing view (run and debugged through Maven), optional compile on save, and Organize Imports.
 
 ## Install
 
@@ -57,6 +62,12 @@ The debugger searches the workspace for sources by default. Set `projectRoot` or
 
 > JDWP provides full control of the JVM. Keep the debug port private; use a local bind, SSH tunnel, or port-forward for remote apps.
 
+## Maven and the Project JDK
+
+Open the **Maven** view in the activity bar. The first row is the **Project JDK**: click it to choose the JDK for the workspace folder from the ones installed on your machine, or browse for another. Every phase and goal you start from the view runs on that JDK. The status bar shows the choice and changes it too.
+
+Run a phase or goal with its run button or a double-click, and debug it with the bug button: for `spring-boot:run` the Kotlin debugger attaches to the application as it starts. **Execute Maven Goal…** in the view's title runs any command line. The extension uses the project's `mvnw` when there is one and its own bundled Maven otherwise; set `kotlinDebugger.maven.executable` to use a specific installation.
+
 ## Requirements
 
 - VS Code 1.85 or newer
@@ -64,6 +75,8 @@ The debugger searches the workspace for sources by default. Set `projectRoot` or
 - Any JVM with JDWP enabled (JDK 21 tested)
 
 ## Development
+
+Open the `kotlin-debug-plugin` folder in VS Code and press **F5** (**Run Extension: Spring Boot sample**): the extension is compiled and a second window, the Extension Development Host, opens the sample project with the extension loaded from source. The Run and Debug view has variants for watch mode, for the adapter project, for any folder, and for the unit and end-to-end tests. Before the first run, use **Terminal › Run Task… › setup: everything for dev mode** (npm install, adapter jar, bundled Maven, sample build; needs a JDK in `JAVA_HOME`).
 
 Run the complete test suite with `./scripts/test.sh`. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for implementation details and [extension/README.md](extension/README.md) for Marketplace installation information.
 

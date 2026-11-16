@@ -50,10 +50,15 @@ object VmConnector {
             null -> "timed out"
             else -> lastError.message ?: lastError.javaClass.simpleName
         }
+        val local = host == "localhost" || host == "127.0.0.1" || host == "::1"
         throw ConnectException2(
-            "Could not attach to JVM at $host:$port within ${timeoutMs / 1000}s ($reason). Start the JVM with\n" +
+            "Could not attach to JVM at $host:$port within ${timeoutMs / 1000}s ($reason). " +
+                (if (local && lastError is ConnectException) "No JVM is listening for a debugger on port $port.\n\n" else "\n\n") +
+                "An attach configuration needs an app that is already running with\n" +
                 "  -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:$port\n" +
-                "and make sure the port is reachable (container port mapping / SSH tunnel / firewall)."
+                "and a reachable port (container port mapping / SSH tunnel / firewall).\n\n" +
+                "To start the app under the debugger instead: use a \"launch\" configuration, " +
+                "\"Debug\" above fun main, or Debug on spring-boot:run in the Maven view."
         )
     }
 

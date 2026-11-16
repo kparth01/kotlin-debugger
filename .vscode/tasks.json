@@ -1,0 +1,65 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "extension: compile",
+      "type": "npm",
+      "script": "compile",
+      "path": "extension",
+      "problemMatcher": "$tsc",
+      "presentation": { "reveal": "silent", "clear": true }
+    },
+    {
+      "label": "extension: watch",
+      "type": "npm",
+      "script": "watch",
+      "path": "extension",
+      "isBackground": true,
+      "problemMatcher": "$tsc-watch",
+      "presentation": { "reveal": "silent" }
+    },
+    {
+      "label": "extension: npm install",
+      "type": "shell",
+      "command": "npm ci --no-audit --no-fund",
+      "options": { "cwd": "${workspaceFolder}/extension" },
+      "problemMatcher": []
+    },
+    {
+      "label": "adapter: build jar",
+      "detail": "Builds the debug adapter with Maven and copies it to extension/server (needs a JDK 17+ in JAVA_HOME)",
+      "type": "shell",
+      "command": "mvn -q -B -DskipTests package && mkdir -p ../extension/server && cp target/kotlin-debug-adapter.jar ../extension/server/",
+      "options": { "cwd": "${workspaceFolder}/adapter" },
+      "problemMatcher": []
+    },
+    {
+      "label": "maven: bundle",
+      "detail": "Downloads the Maven that ships inside the extension (extension/maven)",
+      "type": "shell",
+      "command": "./scripts/fetch-maven.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "sample: build",
+      "detail": "Builds the Spring Boot sample, so completion and the debugger see its classes",
+      "type": "shell",
+      "command": "mvn -q -B -DskipTests package",
+      "options": { "cwd": "${workspaceFolder}/samples/spring-boot-kotlin-demo" },
+      "problemMatcher": []
+    },
+    {
+      "label": "setup: everything for dev mode",
+      "detail": "npm install, adapter jar, bundled Maven, sample build",
+      "dependsOrder": "sequence",
+      "dependsOn": ["extension: npm install", "adapter: build jar", "maven: bundle", "sample: build"],
+      "problemMatcher": []
+    },
+    {
+      "label": "extension: package VSIX",
+      "type": "shell",
+      "command": "./scripts/build.sh --skip-tests",
+      "problemMatcher": []
+    }
+  ]
+}

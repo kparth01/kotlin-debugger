@@ -73,6 +73,33 @@ export class JarSource implements ClassSource {
     }
 }
 
+/** One entry of a zip or jar by its full name (`META-INF/maven/plugin.xml`); `undefined` when it is not there. */
+export function readZipEntry(file: string, entryName: string): Buffer | undefined {
+    const size = fs.statSync(file).size;
+    const tailLength = Math.min(size, 22 + 0xffff);
+    const tail = readAt(file, size - tailLength, tailLength);
+    let eocd = tail.length - 22;
+    while (eocd >= 0 && tail.readUInt32LE(eocd) !== 0x06054b50) { eocd--; }
+    if (eocd < 0) { return undefined; }
+    const cdSize = tail.readUInt32LE(eocd + 12);
+    const cdOffset = tail.readUInt32LE(eocd + 16);
+    if (cdOffset === 0xffffffff) { return undefined; }
+    const base = size - tailLength + eocd - cdSize - cdOffset;
+    const cd = readAt(file, base + cdOffset, cdSize);
+    for (let p = 0; p + 46 <= cd.length && cd.readUInt32LE(p) === 0x02014b50;) {
+        const nameLength = cd.readUInt16LE(p + 28);
+        if (cd.toString("utf8", p + 46, p + 46 + nameLength) === entryName) {
+            const method = cd.readUInt16LE(p + 10);
+            const offset = base + cd.readUInt32LE(p + 42);
+            const header = readAt(file, offset, 30);
+            const data = readAt(file, offset + 30 + header.readUInt16LE(26) + header.readUInt16LE(28), cd.readUInt32LE(p + 20));
+            return method === 8 ? zlib.inflateRawSync(data) : method === 0 ? data : undefined;
+        }
+        p += 46 + nameLength + cd.readUInt16LE(p + 30) + cd.readUInt16LE(p + 32);
+    }
+    return undefined;
+}
+
 export class DirSource implements ClassSource {
     private readonly names: string[] = [];
 
